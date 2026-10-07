@@ -1,0 +1,94 @@
+import { ClassSession, ScheduleChange } from '../../src/modules/schedule/domain/types';
+import {
+  EnrollmentRepository, InstitutionalPort, ScheduleRepository, SyncRunRecord, SyncRunRepository,
+} from '../../src/modules/schedule/application/ports';
+import {
+  PasswordHasher, RevokedTokenRepository, TokenPayload, TokenService, User, UserRepository,
+} from '../../src/modules/auth/application/ports';
+import { AuditEntry, AuditPort } from '../../src/shared/ports';
+import { unauthorized } from '../../src/shared/errors';
+
+export const session = (over: Partial<ClassSession> = {}): ClassSession => ({
+  externalId: 'u1-ALG-1', userId: 'u1', semester: '2026-2', courseCode: 'ALG', courseName: 'Algoritmos',
+  teacher: 'Marta', weekday: 1, startTime: '08:00', endTime: '10:00', block: 'A', floor: 2, room: '201',
+  status: 'ACTIVE', ...over,
+});
+
+export class InMemoryScheduleRepo implements ScheduleRepository {
+  rows: ClassSession[] = [];
+  appliedChanges: ScheduleChange[] = [];
+  async findByUser(userId: string, semester: string) {
+    return this.rows.filter((r) => r.userId === userId && r.semester === semester);
+  }
+  async findOne(userId: string, externalId: string) {
+    return this.rows.find((r) => r.userId === userId && r.externalId === externalId) ?? null;
+  }
+  async applyChanges(userId: string, _semester: string, changes: ScheduleChange[]) {
+    for (const c of changes) {
+      this.rows = this.rows.filter((r) => !(r.userId === userId && r.externalId === c.externalId));
+      if (c.after) this.rows.push(c.after);
+      this.appliedChanges.push(c);
+    }
+  }
+}
+
+export class InMemoryEnrollmentRepo implements EnrollmentRepository {
+  constructor(public active: string[] = []) {}
+  async listActiveStudentIds() { return this.active; }
+  async hasActive(userId: string) { return this.active.includes(userId); }
+}
+
+export class FakeInstitutional implements InstitutionalPort {
+  data = new Map<string, ClassSession[]>();
+  calls = 0;
+  async fetchSchedule(userId: string) { this.calls++; return this.data.get(userId) ?? []; }
+}
+
+export class InMemorySyncRuns implements SyncRunRepository {
+  runs: SyncRunRecord[] = [];
+  async start(trigger: string, actorId?: string) {
+    const rec: SyncRunRecord = {
+      id: `run${this.runs.length + 1}`, trigger, actorId: actorId ?? null,
+      startedAt: new Date(), finishedAt: null, studentsSynced: 0, changesCount: 0, status: 'RUNNING',
+    };
+    this.runs.push(rec);
+    return { id: rec.id };
+  }
+  async finish(id: string, r: { status: 'OK' | 'FAILED'; studentsSynced: number; changesCount: number }) {
+    Object.assign(this.runs.find((x) => x.id === id)!, r, { finishedAt: new Date() });
+  }
+  async list(limit: number) { return this.runs.slice(-limit).reverse(); }
+}
+
+export class InMemoryUsers implements UserRepository {
+  constructor(public users: User[] = []) {}
+  async findByEmail(email: string) { return this.users.find((u) => u.email === email) ?? null; }
+  async findById(id: string) { return this.users.find((u) => u.id === id) ?? null; }
+}
+
+export class InMemoryRevoked implements RevokedTokenRepository {
+  set = new Set<string>();
+  async revoke(jti: string) { this.set.add(jti); }
+  async isRevoked(jti: string) { return this.set.has(jti); }
+}
+
+export class FakeHasher implements PasswordHasher {
+  async hash(p: string) { return `hash:${p}`; }
+  async verify(h: string, p: string) { return h === `hash:${p}`; }
+}
+
+/** Tokens "tok:<id>:<ROLE>:<jti>" — sin criptografía, solo para pruebas. */
+export class FakeTokens implements TokenService {
+  private n = 0;
+  sign(u: { id: string; role: 'STUDENT' | 'ADMIN' }) { return `tok:${u.id}:${u.role}:j${++this.n}`; }
+  verify(token: string): TokenPayload {
+    const [p, sub, role, jti] = token.split(':');
+    if (p !== 'tok') throw unauthorized('Token inválido');
+    return { sub, role: role as 'STUDENT' | 'ADMIN', jti, exp: Math.floor(Date.now() / 1000) + 3600 };
+  }
+}
+
+export class RecordingAudit implements AuditPort {
+  entries: AuditEntry[] = [];
+  async record(e: AuditEntry) { this.entries.push(e); }
+}
