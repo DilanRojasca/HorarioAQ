@@ -5,7 +5,35 @@ services:
       POSTGRES_USER: horario
       POSTGRES_PASSWORD: horario
       POSTGRES_DB: horario
+    # Puerto 5433 en el host para no chocar con un Postgres local en 5432.
     ports: ["5433:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U horario"]
+      interval: 5s
+      retries: 10
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://horario:horario@postgres:5432/horario
+      # En producción el backend exige un secreto de al menos 32 caracteres.
+      JWT_SECRET: ${JWT_SECRET:-cambia-esto-en-produccion-minimo-32-caracteres}
+      CORS_ORIGIN: http://localhost:8080
+      SEED_PASSWORD: ${SEED_PASSWORD:-Cambiar123!}
+    depends_on:
+      postgres: { condition: service_healthy }
+  frontend:
+    build: ./frontend
+    ports: ["8080:80"]
+    depends_on: [backend]
+  backup:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: horario
+    volumes: ["./backups:/backups"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    # Copia diaria (RNF-15, RPO <= 24 h)
+    entrypoint: ["sh", "-c", "while true; do pg_dump -h postgres -U horario horario > /backups/horario-$$(date +%F).sql; sleep 86400; done"]
 volumes:
   pgdata:

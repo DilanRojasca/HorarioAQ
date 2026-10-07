@@ -6,3 +6,4 @@ backups
 *.log
 .superpowers
 .DS_Store
+dist-seed
