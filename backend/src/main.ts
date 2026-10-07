@@ -22,11 +22,12 @@ export function wire() {
   const bus = new InMemoryEventBus();
   const audit = new PrismaAuditLog();
   registerAuditListener(bus, audit);
-  return buildContainer({
+  const syncRuns = new PrismaSyncRunRepository();
+  const container = buildContainer({
     schedules: new PrismaScheduleRepository(),
     enrollments: new PrismaEnrollmentRepository(),
-    institutional: new MockInstitutionalAdapter(),
-    syncRuns: new PrismaSyncRunRepository(),
+    institutional: new MockInstitutionalAdapter(syncRuns),
+    syncRuns,
     users: new PrismaUserRepository(),
     revoked: new PrismaRevokedTokenRepository(),
     hasher: new Argon2Hasher(),
@@ -38,6 +39,7 @@ export function wire() {
       pdf: new PdfExporter({ semester: config.semester }),
     },
   }, config);
+  return { ...container, bus };
 }
 
 if (require.main === module) {

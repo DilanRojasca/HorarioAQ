@@ -27,4 +27,20 @@ describe('withAudit', () => {
     await expect(uc.execute(1)).rejects.toThrow('x');
     expect(audit.record).not.toHaveBeenCalled();
   });
+
+  it('con auditFailures registra <acción>_FAILED con el mensaje y relanza', async () => {
+    const audit = { record: vi.fn(async () => {}) };
+    const failing = { execute: async () => { throw new Error('boom'); } };
+    const uc = withAudit(audit, 'SYNC', failing, { entity: 'e', actorOf: () => 'u', auditFailures: true });
+    await expect(uc.execute(1)).rejects.toThrow('boom');
+    expect(audit.record).toHaveBeenCalledWith({ actorId: 'u', action: 'SYNC_FAILED', entity: 'e', detail: { message: 'boom' } });
+  });
+
+  it('con auditFailures y éxito solo registra la acción normal', async () => {
+    const audit = { record: vi.fn(async () => {}) };
+    const uc = withAudit(audit, 'SYNC', inner, { entity: 'e', actorOf: () => 'u', auditFailures: true });
+    await uc.execute(1);
+    expect(audit.record).toHaveBeenCalledTimes(1);
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ action: 'SYNC' }));
+  });
 });

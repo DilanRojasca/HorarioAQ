@@ -21,4 +21,22 @@ describe('InMemoryEventBus', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(err).toHaveBeenCalled();
   });
+
+  it('idle() espera a los handlers en curso', async () => {
+    const bus = new InMemoryEventBus();
+    let done = false;
+    bus.subscribe('X', async () => { await new Promise((r) => setTimeout(r, 20)); done = true; });
+    bus.publish({ type: 'X' });
+    expect(done).toBe(false);
+    await bus.idle();
+    expect(done).toBe(true);
+  });
+
+  it('idle() resuelve aunque un handler falle', async () => {
+    const bus = new InMemoryEventBus();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    bus.subscribe('X', () => { throw new Error('boom'); });
+    bus.publish({ type: 'X' });
+    await expect(bus.idle()).resolves.toBeUndefined();
+  });
 });

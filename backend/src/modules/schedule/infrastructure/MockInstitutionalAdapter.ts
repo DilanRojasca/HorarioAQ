@@ -1,5 +1,5 @@
 import { ClassSession, Weekday } from '../domain/types';
-import { InstitutionalPort } from '../application/ports';
+import { InstitutionalPort, SyncRunRepository } from '../application/ports';
 
 type Tpl = Omit<ClassSession, 'userId' | 'semester' | 'externalId' | 'status'>;
 
@@ -17,28 +17,29 @@ const BASE: Tpl[] = [
 const LAB: Tpl = { courseCode: 'LAB301', courseName: 'Laboratorio de Software', teacher: 'Diego Mora', weekday: 4 as Weekday, startTime: '14:00', endTime: '16:00', block: 'C', floor: 1, room: '110' };
 
 /**
- * Simula el sistema académico institucional (RRF-07). Por usuario: la 1.ª consulta
- * devuelve el horario base; las siguientes devuelven una variante con cambios
- * (ALG101 → bloque B aula 305, PHY201 cancelada, nueva LAB301).
+ * Simula el sistema académico institucional (RRF-07). Determinista y sin estado propio:
+ * devuelve el horario base mientras no exista ninguna corrida de sincronización OK; desde
+ * entonces devuelve una variante con cambios (ALG101 → bloque B piso 3 aula 305, PHY201
+ * cancelada, nueva LAB301). Al depender del historial en BD es seguro ante reinicios y réplicas.
  */
 export class MockInstitutionalAdapter implements InstitutionalPort {
-  private fetches = new Map<string, number>();
+  constructor(private syncRuns: SyncRunRepository) {}
 
   async fetchSchedule(userId: string, semester: string): Promise<ClassSession[]> {
-    const round = this.fetches.get(userId) ?? 0;
-    this.fetches.set(userId, round + 1);
+    // La corrida en curso está RUNNING, así que no cuenta.
+    const variant = (await this.syncRuns.list(200)).some((r) => r.status === 'OK');
 
     const build = (t: Tpl, over: Partial<ClassSession> = {}): ClassSession => ({
       ...t, userId, semester, externalId: `${userId}-${t.courseCode}-${t.weekday}`, status: 'ACTIVE', ...over,
     });
 
     const rows = BASE.map((t) => {
-      if (round === 0) return build(t);
+      if (!variant) return build(t);
       if (t.courseCode === 'ALG101') return build(t, { block: 'B', floor: 3, room: '305' });
       if (t.courseCode === 'PHY201') return build(t, { status: 'CANCELLED' });
       return build(t);
     });
-    if (round > 0) rows.push(build(LAB));
+    if (variant) rows.push(build(LAB));
     return rows;
   }
 }

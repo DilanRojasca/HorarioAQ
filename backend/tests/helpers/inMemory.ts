@@ -46,7 +46,9 @@ export class FakeInstitutional implements InstitutionalPort {
 
 export class InMemorySyncRuns implements SyncRunRepository {
   runs: SyncRunRecord[] = [];
-  async start(trigger: string, actorId?: string) {
+  async tryStart(trigger: string, actorId?: string) {
+    const cutoff = Date.now() - 3_600_000;
+    if (this.runs.some((r) => r.status === 'RUNNING' && r.startedAt.getTime() > cutoff)) return null;
     const rec: SyncRunRecord = {
       id: `run${this.runs.length + 1}`, trigger, actorId: actorId ?? null,
       startedAt: new Date(), finishedAt: null, studentsSynced: 0, changesCount: 0, status: 'RUNNING',
@@ -54,7 +56,7 @@ export class InMemorySyncRuns implements SyncRunRepository {
     this.runs.push(rec);
     return { id: rec.id };
   }
-  async finish(id: string, r: { status: 'OK' | 'FAILED'; studentsSynced: number; changesCount: number }) {
+  async finish(id: string, r: { status: 'OK' | 'FAILED' | 'PARTIAL'; studentsSynced: number; changesCount: number }) {
     Object.assign(this.runs.find((x) => x.id === id)!, r, { finishedAt: new Date() });
   }
   async list(limit: number) { return this.runs.slice(-limit).reverse(); }

@@ -27,7 +27,8 @@ export interface SyncRunRecord {
 }
 
 export interface SyncRunRepository {
-  start(trigger: string, actorId?: string): Promise<{ id: string }>;
-  finish(id: string, r: { status: 'OK' | 'FAILED'; studentsSynced: number; changesCount: number }): Promise<void>;
+  /** Inicia una corrida; devuelve null si ya hay otra RUNNING iniciada hace menos de 1 h (single-flight). */
+  tryStart(trigger: string, actorId?: string): Promise<{ id: string } | null>;
+  finish(id: string, r: { status: 'OK' | 'FAILED' | 'PARTIAL'; studentsSynced: number; changesCount: number }): Promise<void>;
   list(limit: number): Promise<SyncRunRecord[]>;
 }

@@ -1,9 +1,10 @@
+import { AppError } from '../../../shared/errors';
 import { EventBus, UseCase } from '../../../shared/ports';
 import { diffSchedules } from '../domain/diff';
 import { EnrollmentRepository, InstitutionalPort, ScheduleRepository, SyncRunRepository } from './ports';
 
 export interface SyncInput { trigger: 'MANUAL' | 'CRON'; actorId?: string }
-export interface SyncResult { runId: string; studentsSynced: number; changesCount: number }
+export interface SyncResult { runId: string; studentsSynced: number; changesCount: number; failures: number }
 interface Deps {
   schedules: ScheduleRepository;
   enrollments: EnrollmentRepository;
@@ -25,30 +26,46 @@ export class SyncScheduleUseCase implements UseCase<SyncInput, SyncResult> {
   async execute(input: SyncInput): Promise<SyncResult> {
     const { schedules, enrollments, institutional, syncRuns, bus } = this.d;
     const { semester, concurrency } = this.opts;
-    const run = await syncRuns.start(input.trigger, input.actorId);
+    const run = await syncRuns.tryStart(input.trigger, input.actorId);
+    if (!run) throw new AppError(409, 'SYNC_IN_PROGRESS', 'Ya hay una sincronización en curso');
+
+    let ids: string[];
     try {
-      const ids = await enrollments.listActiveStudentIds(semester);
-      let changesCount = 0;
-      for (const batch of chunk(ids, concurrency)) {
-        await Promise.all(
-          batch.map(async (userId) => {
-            const [local, remote] = await Promise.all([
-              schedules.findByUser(userId, semester),
-              institutional.fetchSchedule(userId, semester),
-            ]);
-            const changes = diffSchedules(local, remote);
-            if (changes.length === 0) return;
-            await schedules.applyChanges(userId, semester, changes);
-            changesCount += changes.length;
-            bus.publish({ type: 'ScheduleChanged', userId, semester, changes });
-          }),
-        );
-      }
-      await syncRuns.finish(run.id, { status: 'OK', studentsSynced: ids.length, changesCount });
-      return { runId: run.id, studentsSynced: ids.length, changesCount };
+      ids = await enrollments.listActiveStudentIds(semester);
     } catch (err) {
       await syncRuns.finish(run.id, { status: 'FAILED', studentsSynced: 0, changesCount: 0 });
       throw err;
     }
+
+    let synced = 0;
+    let failures = 0;
+    let changesCount = 0;
+    let firstError: unknown;
+    for (const batch of chunk(ids, concurrency)) {
+      const settled = await Promise.allSettled(
+        batch.map(async (userId) => {
+          const [local, remote] = await Promise.all([
+            schedules.findByUser(userId, semester),
+            institutional.fetchSchedule(userId, semester),
+          ]);
+          const changes = diffSchedules(local, remote);
+          if (changes.length === 0) return 0;
+          await schedules.applyChanges(userId, semester, changes);
+          bus.publish({ type: 'ScheduleChanged', userId, semester, changes });
+          return changes.length;
+        }),
+      );
+      for (const r of settled) {
+        if (r.status === 'fulfilled') { synced++; changesCount += r.value; }
+        else { failures++; firstError ??= r.reason; }
+      }
+    }
+
+    if (ids.length > 0 && synced === 0) {
+      await syncRuns.finish(run.id, { status: 'FAILED', studentsSynced: synced, changesCount });
+      throw firstError;
+    }
+    await syncRuns.finish(run.id, { status: failures > 0 ? 'PARTIAL' : 'OK', studentsSynced: synced, changesCount });
+    return { runId: run.id, studentsSynced: synced, changesCount, failures };
   }
 }

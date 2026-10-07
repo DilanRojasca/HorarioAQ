@@ -35,20 +35,27 @@ export function buildContainer(p: Ports, cfg: Config) {
     detailOf: (i) => ({ targetUserId: i.targetUserId }),
   });
 
+  const getDetail = withAudit(p.audit, 'VIEW_THIRD_PARTY_SESSION', new GetSessionDetailUseCase(p.schedules), {
+    entity: 'schedule',
+    actorOf: (i) => i.requesterId,
+    shouldAudit: (i) => !!i.ownerId && i.ownerId !== i.requesterId,
+    detailOf: (i) => ({ ownerId: i.ownerId, externalId: i.externalId }),
+  });
+
   const sync = withAudit(
     p.audit, 'SYNC',
     new SyncScheduleUseCase(
       { schedules: p.schedules, enrollments: p.enrollments, institutional: p.institutional, syncRuns: p.syncRuns, bus: p.bus },
       { semester: cfg.semester, concurrency: cfg.syncConcurrency },
     ),
-    { entity: 'schedule', actorOf: (i) => i.actorId ?? 'system', detailOf: (i, o) => ({ trigger: i.trigger, ...o }) },
+    { entity: 'schedule', actorOf: (i) => i.actorId ?? 'system', detailOf: (i, o) => ({ trigger: i.trigger, ...o }), auditFailures: true },
   );
 
   return {
     login: new LoginUseCase(p.users, p.hasher, p.tokens),
     logout: new LogoutUseCase(p.revoked),
     getWeekly,
-    getDetail: new GetSessionDetailUseCase(p.schedules),
+    getDetail,
     exportSchedule: new ExportScheduleUseCase(weekly, p.users, p.exporters),
     sync,
     syncRuns: p.syncRuns,
