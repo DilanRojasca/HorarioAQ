@@ -44,7 +44,10 @@ export const api = {
     const name = /filename="([^"]+)"/.exec(cd)?.[1] ?? fallbackName;
     const url = URL.createObjectURL(await res.blob());
     const a = document.createElement('a');
-    a.href = url; a.download = name; a.click();
-    URL.revokeObjectURL(url);
+    a.href = url; a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 };

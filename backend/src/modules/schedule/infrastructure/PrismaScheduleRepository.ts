@@ -27,14 +27,14 @@ export class PrismaScheduleRepository implements ScheduleRepository {
     return r ? toDomain(r) : null;
   }
 
-  async applyChanges(userId: string, _semester: string, changes: ScheduleChange[]) {
+  async applyChanges(userId: string, semester: string, changes: ScheduleChange[]) {
     const ops: Prisma.PrismaPromise<unknown>[] = [];
     for (const c of changes) {
       const where = { userId_externalId: { userId, externalId: c.externalId } };
       if (c.type === 'CANCELLED') {
         ops.push(prisma.classSession.update({ where, data: { status: 'CANCELLED' } }));
       } else {
-        const data = toData(c.after!);
+        const data = { ...toData(c.after!), userId, semester }; // el adaptador no puede escribir filas de otro usuario/semestre
         ops.push(prisma.classSession.upsert({ where, create: data, update: data }));
       }
       ops.push(prisma.scheduleChange.create({

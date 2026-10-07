@@ -22,6 +22,23 @@ describe('IcsExporter', () => {
     expect(text.trim().endsWith('END:VCALENDAR')).toBe(true);
   });
 
+  it('incluye VTIMEZONE de America/Bogota antes del primer VEVENT', async () => {
+    const text = (await ex.export([session()], 'Ana')).body.toString('utf8');
+    const tz = text.indexOf('BEGIN:VTIMEZONE');
+    expect(tz).toBeGreaterThan(-1);
+    expect(text).toContain('TZID:America/Bogota\r\n');
+    expect(text).toContain('TZOFFSETFROM:-0500\r\nTZOFFSETTO:-0500\r\nTZNAME:-05\r\nEND:STANDARD\r\nEND:VTIMEZONE');
+    expect(tz).toBeLessThan(text.indexOf('BEGIN:VEVENT'));
+  });
+
+  it('escapa \\r\\n y usa un único DTSTAMP por render', async () => {
+    const r = await ex.export([session({ courseName: 'A\r\nB' }), session({ externalId: 'z' })], 'Ana');
+    const text = r.body.toString();
+    expect(text).toContain('SUMMARY:A\\nB');
+    expect(text).not.toContain('A\r\nB');
+    expect(new Set(text.match(/DTSTAMP:\S+/g)).size).toBe(1);
+  });
+
   it('omite sesiones canceladas', async () => {
     const r = await ex.export([session({ status: 'CANCELLED' })], 'Ana');
     expect(r.body.toString()).not.toContain('BEGIN:VEVENT');

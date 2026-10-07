@@ -44,30 +44,36 @@ Stack: React 18 + Vite (frontend), Node 20 + Express + Prisma + PostgreSQL (back
 | Variable | Descripción | Por defecto |
 |---|---|---|
 | `DATABASE_URL` | Conexión a PostgreSQL (local: 5432; docker-compose publica el suyo en el **5433** del host) | `postgresql://horario:horario@localhost:5432/horario` |
-| `JWT_SECRET` | Secreto de firma. En `NODE_ENV=production` se exigen ≥ 32 caracteres | `cambia-esto-en-produccion` |
+| `JWT_SECRET` | Secreto de firma. En `NODE_ENV=production` el backend no arranca si tiene < 32 caracteres, es el valor de desarrollo o contiene `cambia-esto` | `dev-secret-change-me` (solo desarrollo) |
 | `PORT` | Puerto del API | `4000` |
 | `CORS_ORIGIN` | Origen permitido del frontend | `http://localhost:5173` |
 | `ACTIVE_SEMESTER`, `SEMESTER_START`, `SEMESTER_WEEKS` | Semestre activo (y base del `.ics`) | `2026-2`, `2026-08-03`, `16` |
 | `SYNC_CRON` | Cron de sincronización automática | `0 3 * * *` |
 | `SYNC_CONCURRENCY` | Estudiantes sincronizados en paralelo | `5` |
 | `TRUST_PROXY` | Nº de proxies de confianza (`trust proxy`); `1` en Docker (nginx) para que rate-limit y auditoría vean la IP real | `0` |
-| `SEED_PASSWORD` | Contraseña de los usuarios semilla | `Cambiar123!` |
+| `SEED_PASSWORD` | Contraseña de los usuarios **nuevos** del seed (no se modifica la de usuarios existentes). En `NODE_ENV=production` es obligatoria y no puede ser la pública `Cambiar123!` | `Cambiar123!` (solo desarrollo) |
 
 ## Docker
 
 ```bash
+export JWT_SECRET=$(openssl rand -hex 32)      # obligatorio: el compose no trae valor por defecto
 docker compose up --build        # postgres + backend + frontend + backup
+# o en una línea: JWT_SECRET=$(openssl rand -hex 32) docker compose up --build
 ```
+
+`JWT_SECRET` también puede ir en un `.env` junto al `docker-compose.yml` (ver `.env.example`; `.env` no se versiona). Sin él, `docker compose config/up` falla con un mensaje claro.
 
 - Aplicación: <http://localhost:8080> (nginx sirve el frontend y proxea `/api/` al backend).
 - PostgreSQL se publica en el puerto **5433** del host (nunca 5432, para no chocar con un Postgres local).
-- El backend ejecuta `prisma migrate deploy` al arrancar. En producción exige `JWT_SECRET` de ≥ 32 caracteres; el compose trae un valor por defecto solo de desarrollo, sobrescríbalo con `JWT_SECRET=... docker compose up`.
+- El backend ejecuta `prisma migrate deploy` al arrancar. En producción exige un `JWT_SECRET` propio de ≥ 32 caracteres (el compose lo requiere y no tiene valor por defecto).
 - `backup` escribe un `pg_dump` diario en `./backups/horario-AAAA-MM-DD.sql` (RNF-15, RPO ≤ 24 h) de forma atómica (archivo temporal y `mv` solo si el dump termina bien, así un fallo no pisa una copia buena) y borra copias de más de 14 días. `backend` y `backup` usan `restart: unless-stopped`. `backups/` está en `.gitignore`.
 - Apagar y borrar contenedores y volumen: `docker compose down -v`.
 
 ### Sembrar datos en Docker
 
 La imagen de producción no incluye `tsx`; el build compila el seed a JS (`dist-seed/`). Dos opciones equivalentes:
+
+`seed:prod` exige `SEED_PASSWORD` (definida al hacer `up`, p. ej. `SEED_PASSWORD=... docker compose up -d`) y rechaza la contraseña pública por defecto:
 
 ```bash
 # a) dentro del contenedor del backend
@@ -77,7 +83,7 @@ docker compose exec backend npm run seed:prod
 cd backend && DATABASE_URL=postgresql://horario:horario@localhost:5433/horario npm run seed
 ```
 
-El seed es idempotente (upsert de usuarios y matrículas) y hace la sincronización inicial.
+El seed es idempotente (upsert de usuarios y matrículas; no restablece la contraseña de usuarios existentes) y hace la sincronización inicial.
 
 ## Usuarios semilla
 
@@ -127,9 +133,15 @@ Contraseña de todos: el valor de `SEED_PASSWORD` (por defecto, el de `backend/.
 
 ## Adaptador institucional mock y cómo sustituirlo
 
-Los datos académicos vienen del puerto `InstitutionalPort` (`backend/src/modules/schedule/application/ports.ts`). Hoy lo implementa `MockInstitutionalAdapter`: la primera consulta devuelve el horario base y las siguientes devuelven cambios (ALG101 pasa a bloque B/aula 305, desaparece PHY201, aparece LAB301), útil para probar la detección de cambios.
+Los datos académicos vienen del puerto `InstitutionalPort` (`backend/src/modules/schedule/application/ports.ts`). Hoy lo implementa `MockInstitutionalAdapter`, determinista y sin estado propio (seguro ante reinicios y réplicas): la primera sincronización carga el horario base; la siguiente muestra cambios (ALG101 pasa a bloque B, piso 3, aula 305; PHY201 se devuelve como `CANCELLED` —en BD queda la fila cancelada y desaparece de la vista semanal—; aparece LAB301) y las posteriores no muestran ninguno. Lo decide el historial: la variante se sirve si existe al menos una corrida de sincronización con estado `OK`.
 
 Para integrar el sistema real: crear una clase que implemente `InstitutionalPort` (p. ej. `UniApiAdapter`) y cambiar la instancia en `wire()` de `backend/src/main.ts`. Ni los casos de uso ni las rutas cambian.
+
+## Decisiones
+
+- `Course` está **denormalizado** en `ClassSession` (código, nombre y docente en la propia fila): en esta iteración no hay tabla `Course` separada.
+- `GET /api/schedule/sessions/:externalId` existe en la API (y se audita si un admin consulta la de un tercero), pero la interfaz usa el payload del horario semanal.
+- Sincronización: una sola corrida a la vez (single-flight, `409 SYNC_IN_PROGRESS`; una corrida `RUNNING` de más de 1 h se considera obsoleta). Los fallos por estudiante no abortan la corrida: estado `OK`, `PARTIAL` (algunos fallaron) o `FAILED` (todos, o falló el listado). Las sincronizaciones fallidas se auditan como `SYNC_FAILED`.
 
 ## Fuera de alcance de esta iteración
 
@@ -138,9 +150,11 @@ Registro de usuarios / OTP, detección de huecos, notificaciones (el evento `Sch
 ## Pruebas
 
 ```bash
-cd backend  && npm test && npm run test:cov     # 57 tests; cobertura ≈ 97 % líneas
+cd backend  && npm test && npm run test:cov     # 82 tests; cobertura: ver nota
 cd frontend && npx vitest run && npx tsc --noEmit -p tsconfig.app.json && npm run build
 ```
+
+La cifra de cobertura **excluye** los repositorios Prisma, `Argon2Hasher`, `main.ts` y `jobs/` (ver `backend/vitest.config.ts`), por lo que la lógica de persistencia no entra en ese porcentaje; se verifica manualmente contra la base real.
 
 ### Prueba de carga
 

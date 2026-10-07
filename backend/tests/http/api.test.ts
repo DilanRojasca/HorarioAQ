@@ -97,6 +97,48 @@ describe('API', () => {
     expect((await request(app).get('/api/schedule/sessions/nope').set('Authorization', `Bearer ${t1}`)).status).toBe(404);
   });
 
+  it('admin que lee el detalle de una clase ajena queda auditado; el estudiante con la propia, no (RNF-14)', async () => {
+    const admin = await login('admin@x.co');
+    await request(app).post('/api/admin/sync').set('Authorization', `Bearer ${admin}`);
+    const t1 = await login('u1@x.co');
+    expect((await request(app).get('/api/schedule/sessions/u1-ALG-1').set('Authorization', `Bearer ${t1}`)).status).toBe(200);
+    expect(audit.entries.some((e) => e.action === 'VIEW_THIRD_PARTY_SESSION')).toBe(false);
+    // Los ids de usuario de las rutas son UUID; u1 no lo es, así que se consulta la clase de U2.
+    const r = await request(app).get(`/api/schedule/sessions/${U2}-ALG-1?userId=${U2}`).set('Authorization', `Bearer ${admin}`);
+    expect(r.status).toBe(200);
+    expect(audit.entries).toContainEqual(expect.objectContaining({
+      action: 'VIEW_THIRD_PARTY_SESSION', actorId: 'admin', detail: { ownerId: U2, externalId: `${U2}-ALG-1` },
+    }));
+  });
+
+  it('JSON malformado → 400 BAD_REQUEST (no 500)', async () => {
+    const r = await request(app).post('/api/auth/login').set('Content-Type', 'application/json').send('{bad json');
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: 'BAD_REQUEST', message: 'Cuerpo de la solicitud inválido' });
+  });
+
+  it('cuerpo demasiado grande → 413', async () => {
+    const r = await request(app).post('/api/auth/login').set('Content-Type', 'application/json')
+      .send(JSON.stringify({ email: 'a@b.co', password: 'x'.repeat(200_000) }));
+    expect(r.status).toBe(413);
+  });
+
+  it('dos sincronizaciones simultáneas: una 200 y otra 409', async () => {
+    const admin = await login('admin@x.co');
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const orig = inst.fetchSchedule.bind(inst);
+    inst.fetchSchedule = async (id: string) => { await gate; return orig(id); };
+    const a = request(app).post('/api/admin/sync').set('Authorization', `Bearer ${admin}`).then((r) => r);
+    await new Promise((x) => setTimeout(x, 50));
+    const b = await request(app).post('/api/admin/sync').set('Authorization', `Bearer ${admin}`);
+    expect(b.status).toBe(409);
+    expect(b.body.code).toBe('SYNC_IN_PROGRESS');
+    release();
+    expect((await a).status).toBe(200);
+    expect(audit.entries.some((e) => e.action === 'SYNC_FAILED')).toBe(true);
+  });
+
   it('exporta ics y pdf; formato inválido → 400', async () => {
     const admin = await login('admin@x.co');
     await request(app).post('/api/admin/sync').set('Authorization', `Bearer ${admin}`);
