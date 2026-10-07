@@ -5,3 +5,4 @@ coverage
 backups
 *.log
 .superpowers
+.DS_Store
