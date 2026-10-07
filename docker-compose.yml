@@ -14,11 +14,13 @@ services:
       retries: 10
   backend:
     build: ./backend
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://horario:horario@postgres:5432/horario
       # En producción el backend exige un secreto de al menos 32 caracteres.
       JWT_SECRET: ${JWT_SECRET:-cambia-esto-en-produccion-minimo-32-caracteres}
       CORS_ORIGIN: http://localhost:8080
+      TRUST_PROXY: "1"
       SEED_PASSWORD: ${SEED_PASSWORD:-Cambiar123!}
     depends_on:
       postgres: { condition: service_healthy }
@@ -28,12 +30,13 @@ services:
     depends_on: [backend]
   backup:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       PGPASSWORD: horario
     volumes: ["./backups:/backups"]
     depends_on:
       postgres: { condition: service_healthy }
-    # Copia diaria (RNF-15, RPO <= 24 h)
-    entrypoint: ["sh", "-c", "while true; do pg_dump -h postgres -U horario horario > /backups/horario-$$(date +%F).sql; sleep 86400; done"]
+    # Copia diaria (RNF-15, RPO <= 24 h): escritura atómica (temporal + mv solo si pg_dump tiene éxito) y retención de 14 días.
+    entrypoint: ["sh", "-c", "while true; do pg_dump -h postgres -U horario horario > /backups/.tmp.sql && mv /backups/.tmp.sql /backups/horario-$$(date +%F).sql; rm -f /backups/.tmp.sql; find /backups -name 'horario-*.sql' -mtime +14 -delete; sleep 86400; done"]
 volumes:
   pgdata:

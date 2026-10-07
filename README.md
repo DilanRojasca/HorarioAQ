@@ -50,6 +50,7 @@ Stack: React 18 + Vite (frontend), Node 20 + Express + Prisma + PostgreSQL (back
 | `ACTIVE_SEMESTER`, `SEMESTER_START`, `SEMESTER_WEEKS` | Semestre activo (y base del `.ics`) | `2026-2`, `2026-08-03`, `16` |
 | `SYNC_CRON` | Cron de sincronización automática | `0 3 * * *` |
 | `SYNC_CONCURRENCY` | Estudiantes sincronizados en paralelo | `5` |
+| `TRUST_PROXY` | Nº de proxies de confianza (`trust proxy`); `1` en Docker (nginx) para que rate-limit y auditoría vean la IP real | `0` |
 | `SEED_PASSWORD` | Contraseña de los usuarios semilla | `Cambiar123!` |
 
 ## Docker
@@ -61,7 +62,7 @@ docker compose up --build        # postgres + backend + frontend + backup
 - Aplicación: <http://localhost:8080> (nginx sirve el frontend y proxea `/api/` al backend).
 - PostgreSQL se publica en el puerto **5433** del host (nunca 5432, para no chocar con un Postgres local).
 - El backend ejecuta `prisma migrate deploy` al arrancar. En producción exige `JWT_SECRET` de ≥ 32 caracteres; el compose trae un valor por defecto solo de desarrollo, sobrescríbalo con `JWT_SECRET=... docker compose up`.
-- `backup` escribe un `pg_dump` diario en `./backups/horario-AAAA-MM-DD.sql` (RNF-15, RPO ≤ 24 h). `backups/` está en `.gitignore`.
+- `backup` escribe un `pg_dump` diario en `./backups/horario-AAAA-MM-DD.sql` (RNF-15, RPO ≤ 24 h) de forma atómica (archivo temporal y `mv` solo si el dump termina bien, así un fallo no pisa una copia buena) y borra copias de más de 14 días. `backend` y `backup` usan `restart: unless-stopped`. `backups/` está en `.gitignore`.
 - Apagar y borrar contenedores y volumen: `docker compose down -v`.
 
 ### Sembrar datos en Docker

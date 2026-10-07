@@ -11,6 +11,8 @@ import { errorHandler } from './errorHandler';
 
 export function createApp(c: Container, cfg: Config) {
   const app = express();
+  // Detrás de nginx/balanceador: nº de proxies de confianza (0 = sin proxy, desarrollo local).
+  app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 0));
   app.use(helmet());
   app.use(cors({ origin: cfg.corsOrigin, exposedHeaders: ['Content-Disposition'] }));
   app.use(express.json());
