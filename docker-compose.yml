@@ -17,11 +17,12 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://horario:horario@postgres:5432/horario
-      # En producción el backend exige un secreto de al menos 32 caracteres.
-      JWT_SECRET: ${JWT_SECRET:-cambia-esto-en-produccion-minimo-32-caracteres}
+      # Obligatorio y sin valor por defecto: el backend (NODE_ENV=production) exige >= 32 caracteres.
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET es obligatorio (mínimo 32 caracteres)}
       CORS_ORIGIN: http://localhost:8080
       TRUST_PROXY: "1"
-      SEED_PASSWORD: ${SEED_PASSWORD:-Cambiar123!}
+      # Sin valor por defecto: `seed:prod` falla con un mensaje claro si no se define.
+      SEED_PASSWORD: ${SEED_PASSWORD:-}
     depends_on:
       postgres: { condition: service_healthy }
   frontend:

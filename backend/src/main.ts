@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { config } from './shared/config';
+import { assertSafeConfig } from './shared/safeConfig';
 import { buildContainer } from './shared/container';
 import { InMemoryEventBus } from './shared/eventBus';
 import { createApp } from './shared/http/app';
@@ -16,15 +17,6 @@ import { PrismaScheduleRepository } from './modules/schedule/infrastructure/Pris
 import { PrismaSyncRunRepository } from './modules/schedule/infrastructure/PrismaSyncRunRepository';
 import { IcsExporter } from './modules/schedule/infrastructure/exporters/IcsExporter';
 import { PdfExporter } from './modules/schedule/infrastructure/exporters/PdfExporter';
-
-const DEV_SECRET = 'dev-secret-change-me';
-
-/** En producción se exige un secreto JWT propio y suficientemente largo. */
-export function assertSafeConfig(env: string | undefined, secret: string) {
-  if (env === 'production' && (secret === DEV_SECRET || secret.length < 32)) {
-    throw new Error('JWT_SECRET inseguro: en producción debe definirse y tener al menos 32 caracteres');
-  }
-}
 
 export function wire() {
   const bus = new InMemoryEventBus();
