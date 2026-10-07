@@ -30,7 +30,10 @@ async function raw(path: string, init: RequestInit = {}): Promise<Response> {
 }
 
 export const api = {
-  get: async <T>(path: string): Promise<T> => (await raw(path)).json(),
+  get: async <T>(path: string): Promise<T> => {
+    const res = await raw(path);
+    return res.status === 204 ? (undefined as T) : res.json();
+  },
   post: async <T>(path: string, body?: unknown): Promise<T> => {
     const res = await raw(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
     return res.status === 204 ? (undefined as T) : res.json();

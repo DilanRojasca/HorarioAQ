@@ -4,7 +4,8 @@
 body { margin: 0; font-family: var(--font); color: var(--color-text); background: var(--color-bg); line-height: 1.5; }
 h1, h2, h3 { line-height: 1.2; margin: 0 0 .5rem; }
 a { color: var(--color-primary-dark); }
-:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--color-primary-dark); outline-offset: 2px; box-shadow: 0 0 0 5px #fff; }
+.app-header :focus-visible { outline-color: #fff; box-shadow: 0 0 0 5px var(--color-primary-dark); }
 
 .skip-link { position: absolute; left: -999px; top: 0; background: var(--color-surface); padding: .5rem 1rem; z-index: 10; }
 .skip-link:focus { left: .5rem; top: .5rem; }
@@ -12,6 +13,8 @@ a { color: var(--color-primary-dark); }
 .app-header { background: var(--color-primary); color: #fff; display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem; padding: .75rem 1rem; border-bottom: 4px solid var(--color-accent); }
 .app-header a, .app-header button { color: #fff; }
 .app-header nav { display: flex; gap: 1rem; flex: 1; }
+.app-header nav a { padding-bottom: 2px; border-bottom: 3px solid transparent; }
+.app-header nav a[aria-current="page"] { font-weight: 700; text-decoration: underline; border-bottom-color: var(--color-accent); }
 .app-header .user { font-size: .9rem; }
 .container { max-width: 1100px; margin: 0 auto; padding: 1rem; }
 

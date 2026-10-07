@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthProvider, useAuth } from './AuthContext';
-import { api } from '../../shared/api';
+import { api, setToken } from '../../shared/api';
 
 vi.mock('../../shared/api', async (orig) => {
   const real = await orig<typeof import('../../shared/api')>();
@@ -37,11 +37,18 @@ describe('AuthContext', () => {
   });
 
   it('auth:expired cierra la sesión', async () => {
-    sessionStorage.setItem('horario_token', 't');
+    setToken('t');
     sessionStorage.setItem('horario_user', JSON.stringify({ id: '1', name: 'Ana', email: 'a', role: 'STUDENT' }));
     render(<AuthProvider><Probe /></AuthProvider>);
     expect(screen.getByTestId('who')).toHaveTextContent('Ana');
     act(() => { window.dispatchEvent(new Event('auth:expired')); });
+    expect(screen.getByTestId('who')).toHaveTextContent('anon');
+  });
+
+  it('un usuario guardado sin token no se considera autenticado', () => {
+    setToken(null);
+    sessionStorage.setItem('horario_user', JSON.stringify({ id: '1', name: 'Ana', email: 'a', role: 'STUDENT' }));
+    render(<AuthProvider><Probe /></AuthProvider>);
     expect(screen.getByTestId('who')).toHaveTextContent('anon');
   });
 });

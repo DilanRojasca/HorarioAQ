@@ -3,11 +3,13 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from '../features/auth/AuthContext';
 import ProtectedRoute from './ProtectedRoute';
+import { setToken } from './api';
 
 function seed(role?: 'ADMIN' | 'STUDENT') {
   sessionStorage.clear();
+  setToken(null);
   if (!role) return;
-  sessionStorage.setItem('horario_token', 't');
+  setToken('t');
   sessionStorage.setItem('horario_user', JSON.stringify({ id: '1', name: 'U', email: 'u@x.co', role }));
 }
 

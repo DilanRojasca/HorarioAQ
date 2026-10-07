@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api, setToken } from '../../shared/api';
+import { api, getToken, setToken } from '../../shared/api';
 
 export interface AuthUser { id: string; name: string; email: string; role: 'STUDENT' | 'ADMIN' }
 interface Ctx {
@@ -13,6 +13,7 @@ const AuthCtx = createContext<Ctx | null>(null);
 const USER_KEY = 'horario_user';
 
 const readUser = (): AuthUser | null => {
+  if (!getToken()) return null;
   try { return JSON.parse(sessionStorage.getItem(USER_KEY) ?? 'null'); } catch { return null; }
 };
 
