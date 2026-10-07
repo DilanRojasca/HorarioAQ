@@ -8,12 +8,12 @@ export class JwtTokenService implements TokenService {
   constructor(private secret: string) {}
 
   sign(user: { id: string; role: Role }): string {
-    return jwt.sign({ role: user.role }, this.secret, { subject: user.id, expiresIn: '60m', jwtid: randomUUID() });
+    return jwt.sign({ role: user.role }, this.secret, { subject: user.id, algorithm: 'HS256', expiresIn: '60m', jwtid: randomUUID() });
   }
 
   verify(token: string): TokenPayload {
     try {
-      const p = jwt.verify(token, this.secret) as jwt.JwtPayload;
+      const p = jwt.verify(token, this.secret, { algorithms: ['HS256'] }) as jwt.JwtPayload;
       return { sub: p.sub as string, role: p.role as Role, jti: p.jti as string, exp: p.exp as number };
     } catch {
       throw unauthorized('Token inválido o expirado');
