@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+model User {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         Role          @default(STUDENT)
+  active       Boolean       @default(true)
+  enrollments  Enrollment[]
+  sessions     ClassSession[]
+}
+
+model Enrollment {
+  id       String  @id @default(uuid()) @db.Uuid
+  userId   String  @db.Uuid
+  semester String
+  active   Boolean @default(true)
+  user     User    @relation(fields: [userId], references: [id])
+
+  @@unique([userId, semester])
+}
+
+model ClassSession {
+  id         String @id @default(uuid()) @db.Uuid
+  externalId String
+  userId     String @db.Uuid
+  semester   String
+  courseCode String
+  courseName String
+  teacher    String
+  weekday    Int
+  startTime  String
+  endTime    String
+  block      String
+  floor      Int
+  room       String
+  status     String @default("ACTIVE")
+  user       User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, externalId])
+  @@index([userId, semester, weekday])
+}
+
+model ScheduleChange {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  externalId String
+  type       String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model SyncRun {
+  id             String    @id @default(uuid()) @db.Uuid
+  trigger        String
+  actorId        String?
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+  studentsSynced Int       @default(0)
+  changesCount   Int       @default(0)
+  status         String    @default("RUNNING")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  actorId   String?
+  action    String
+  entity    String
+  detail    Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model RevokedToken {
+  jti       String   @id
+  expiresAt DateTime
+}
