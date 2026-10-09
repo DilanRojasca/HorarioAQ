@@ -24,11 +24,16 @@ export interface SyncRunRecord {
   studentsSynced: number;
   changesCount: number;
   status: string;
+  stats: SyncStats | null;
 }
+
+export type SyncStats = { added: number; updated: number; cancelled: number };
 
 export interface SyncRunRepository {
   /** Inicia una corrida; devuelve null si ya hay otra RUNNING iniciada hace menos de 1 h (single-flight). */
   tryStart(trigger: string, actorId?: string): Promise<{ id: string } | null>;
   finish(id: string, r: { status: 'OK' | 'FAILED' | 'PARTIAL'; studentsSynced: number; changesCount: number }): Promise<void>;
+  /** Guarda el desglose de cambios de la corrida (lo escribe el observador de estadísticas). */
+  saveStats(id: string, stats: SyncStats): Promise<void>;
   list(limit: number): Promise<SyncRunRecord[]>;
 }

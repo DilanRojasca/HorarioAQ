@@ -12,6 +12,7 @@ import { PrismaRevokedTokenRepository } from './modules/auth/infrastructure/Pris
 import { PrismaUserRepository } from './modules/auth/infrastructure/PrismaUserRepository';
 import { PrismaAuditLog } from './modules/audit/PrismaAuditLog';
 import { registerAuditObserver } from './modules/audit/auditObserver';
+import { registerSyncStatsObserver } from './modules/schedule/observers/syncStatsObserver';
 import { MockInstitutionalAdapter } from './modules/schedule/infrastructure/MockInstitutionalAdapter';
 import { PrismaEnrollmentRepository } from './modules/schedule/infrastructure/PrismaEnrollmentRepository';
 import { PrismaScheduleRepository } from './modules/schedule/infrastructure/PrismaScheduleRepository';
@@ -20,10 +21,12 @@ import { IcsExporter } from './modules/schedule/infrastructure/exporters/IcsExpo
 import { PdfExporter } from './modules/schedule/infrastructure/exporters/PdfExporter';
 
 export function wire() {
-  const bus = new EventBus({ log: new PrismaEventLog() });
+  const eventLog = new PrismaEventLog();
+  const bus = new EventBus({ log: eventLog });
   const audit = new PrismaAuditLog();
   registerAuditObserver(bus, audit);
   const syncRuns = new PrismaSyncRunRepository();
+  registerSyncStatsObserver(bus, syncRuns);
   const container = buildContainer({
     schedules: new PrismaScheduleRepository(),
     enrollments: new PrismaEnrollmentRepository(),
@@ -35,6 +38,7 @@ export function wire() {
     tokens: new JwtTokenService(config.jwtSecret),
     audit,
     bus,
+    eventLog,
     exporters: {
       ics: new IcsExporter({ semesterStart: config.semesterStart, weeks: config.semesterWeeks }),
       pdf: new PdfExporter({ semester: config.semester }),

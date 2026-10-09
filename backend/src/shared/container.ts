@@ -1,6 +1,7 @@
 import { withAudit } from './audit';
 import { Config } from './config';
 import { EventBus } from './events/EventBus';
+import { EventLog } from './events/types';
 import { AuditPort } from './ports';
 import { LoginUseCase } from '../modules/auth/application/Login';
 import { LogoutUseCase } from '../modules/auth/application/Logout';
@@ -23,6 +24,7 @@ export interface Ports {
   tokens: TokenService;
   audit: AuditPort;
   bus: EventBus;
+  eventLog: EventLog;
   exporters: Record<ExportFormat, BaseExporter>;
 }
 
@@ -60,6 +62,7 @@ export function buildContainer(p: Ports, cfg: Config) {
     exportSchedule: new ExportScheduleUseCase(weekly, p.users, p.exporters),
     sync,
     syncRuns: p.syncRuns,
+    eventLog: p.eventLog,
     tokens: p.tokens,
     revoked: p.revoked,
   };

@@ -75,6 +75,7 @@ model SyncRun {
   studentsSynced Int       @default(0)
   changesCount   Int       @default(0)
   status         String    @default("RUNNING")
+  stats          Json?
 }
 
 model AuditLog {
