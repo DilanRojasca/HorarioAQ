@@ -1,4 +1,10 @@
 const env = process.env;
+function emailMode(v: string | undefined): 'console' | 'brevo' {
+  const mode = v || 'console';
+  if (mode !== 'console' && mode !== 'brevo') throw new Error(`EMAIL_MODE inválido: "${mode}" (use "console" o "brevo")`);
+  return mode;
+}
+
 export const config = {
   port: Number(env.PORT ?? 4000),
   jwtSecret: env.JWT_SECRET ?? 'dev-secret-change-me',
@@ -11,5 +17,11 @@ export const config = {
   notifyWindowStart: Number(env.NOTIFY_WINDOW_START ?? 6),
   notifyWindowEnd: Number(env.NOTIFY_WINDOW_END ?? 22),
   notifyTimezone: env.NOTIFY_WINDOW_TZ ?? 'America/Bogota',
+  emailMode: emailMode(env.EMAIL_MODE),
+  brevoApiKey: env.BREVO_API_KEY || undefined,
+  mailFromEmail: env.MAIL_FROM_EMAIL || undefined,
+  mailFromName: env.MAIL_FROM_NAME || 'Horario UNI',
+  emailRedirectTo: env.EMAIL_REDIRECT_TO || undefined,
+  notifyFlushCron: env.NOTIFY_FLUSH_CRON ?? '*/5 * * * *',
 };
 export type Config = typeof config;

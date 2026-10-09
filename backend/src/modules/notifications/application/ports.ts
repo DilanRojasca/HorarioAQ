@@ -22,3 +22,10 @@ export interface NotificationRepository {
   markEmailed(id: string, at: Date): Promise<void>;
   listPendingEmail(since: Date, limit: number): Promise<NotificationRecord[]>;
 }
+
+export interface EmailMessage { to: string; subject: string; text: string; html?: string }
+
+/** Puerto de salida de correo; los adaptadores (consola, Brevo) lo implementan. */
+export interface EmailPort {
+  send(msg: EmailMessage): Promise<void>;
+}

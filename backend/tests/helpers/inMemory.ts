@@ -6,7 +6,7 @@ import {
 import {
   PasswordHasher, RevokedTokenRepository, TokenPayload, TokenService, User, UserRepository,
 } from '../../src/modules/auth/application/ports';
-import { NotificationRecord, NotificationRepository } from '../../src/modules/notifications/application/ports';
+import { EmailPort, NotificationRecord, NotificationRepository } from '../../src/modules/notifications/application/ports';
 import { NotificationKind } from '../../src/shared/events/types';
 import { AuditEntry, AuditPort } from '../../src/shared/ports';
 import { unauthorized } from '../../src/shared/errors';
@@ -139,5 +139,20 @@ export class InMemoryNotifications implements NotificationRepository {
       .filter((r) => r.emailedAt === null && r.createdAt >= since)
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .slice(0, limit);
+  }
+}
+
+export class RecordingEmail implements EmailPort {
+  sent: Array<{ to: string; subject: string; text: string; html?: string }> = [];
+  attempts = 0;
+  /** Si se define, todos los envíos fallan con este error. */
+  failWith?: Error;
+  /** Número de envíos que fallan antes de empezar a funcionar. */
+  failTimes = 0;
+  async send(msg: { to: string; subject: string; text: string; html?: string }) {
+    this.attempts++;
+    if (this.failWith) throw this.failWith;
+    if (this.failTimes > 0) { this.failTimes--; throw new Error('fallo transitorio'); }
+    this.sent.push(msg);
   }
 }
