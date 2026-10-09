@@ -16,8 +16,13 @@ export interface NotificationRecord {
   emailAttempts: number;
 }
 
-/** Tope de envíos fallidos tras el cual el job de pendientes deja de reintentar una notificación. */
-export const MAX_EMAIL_ATTEMPTS = 5;
+/** Reintentos del bus para el observador `email` (por entrega: 1 intento + 3 reintentos). */
+export const EMAIL_OBSERVER_RETRIES = 3;
+export const ATTEMPTS_PER_DELIVERY = EMAIL_OBSERVER_RETRIES + 1;
+/** Rondas de entrega (en vivo o del job de pendientes) tras las cuales se deja de reintentar una notificación. */
+export const MAX_EMAIL_DELIVERY_ROUNDS = 5;
+/** Tope de envíos fallidos acumulados (`emailAttempts` suma cada intento del bus): 5 rondas de 4 intentos. */
+export const MAX_EMAIL_ATTEMPTS = MAX_EMAIL_DELIVERY_ROUNDS * ATTEMPTS_PER_DELIVERY;
 
 export interface NotificationRepository {
   create(n: { userId: string; kind: NotificationKind; title: string; message: string }): Promise<NotificationRecord>;

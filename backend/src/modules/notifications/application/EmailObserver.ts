@@ -2,7 +2,7 @@ import { EventBus } from '../../../shared/events/EventBus';
 import { Subscription } from '../../../shared/events/types';
 import { isWithinSendWindow, SendWindowOptions } from '../../../shared/window';
 import { UserRepository } from '../../auth/application/ports';
-import { EmailPort, NotificationRepository } from './ports';
+import { EMAIL_OBSERVER_RETRIES, EmailPort, NotificationRepository } from './ports';
 
 export interface EmailObserverDeps {
   bus: EventBus;
@@ -48,6 +48,6 @@ export function registerEmailObserver(deps: EmailObserverDeps): Subscription[] {
         }
         throw err;
       }
-    }, { name: 'email', priority: 10, retries: 3 }),
+    }, { name: 'email', priority: 10, retries: EMAIL_OBSERVER_RETRIES }),
   ];
 }

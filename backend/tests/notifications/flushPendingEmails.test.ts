@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { EventBus } from '../../src/shared/events/EventBus';
 import { flushPendingEmails } from '../../src/modules/notifications/application/flushPendingEmails';
 import { registerEmailObserver } from '../../src/modules/notifications/application/EmailObserver';
-import { MAX_EMAIL_ATTEMPTS } from '../../src/modules/notifications/application/ports';
+import { ATTEMPTS_PER_DELIVERY, MAX_EMAIL_ATTEMPTS, MAX_EMAIL_DELIVERY_ROUNDS } from '../../src/modules/notifications/application/ports';
 import { InMemoryNotifications, InMemoryUsers, RecordingEmail } from '../helpers/inMemory';
 
 const NOW = new Date('2026-10-09T15:00:00Z'); // 10:00 Bogotá
@@ -82,6 +82,45 @@ describe('flushPendingEmails', () => {
     expect(published).toEqual([fresh.id]);
     stuck.emailAttempts = MAX_EMAIL_ATTEMPTS - 1;
     expect(await flush()).toBe(2);
+  });
+
+  it('el tope son rondas de entrega: 4 rondas fallidas siguen pendientes; a la 5.ª (20 intentos) se excluye', async () => {
+    expect(MAX_EMAIL_ATTEMPTS).toBe(MAX_EMAIL_DELIVERY_ROUNDS * ATTEMPTS_PER_DELIVERY);
+    expect(MAX_EMAIL_ATTEMPTS).toBe(20);
+    const email = new RecordingEmail();
+    email.failWith = new Error('Brevo caído');
+    registerEmailObserver({
+      bus, notifications: repo, email, now: () => NOW,
+      users: new InMemoryUsers([{ id: 'u1', name: 'Ana', email: 'ana@horariouni.test', passwordHash: 'h', role: 'STUDENT', active: true }]),
+    });
+    const stuck = await make('atascada', hoursAgo(5));
+    for (let round = 1; round <= MAX_EMAIL_DELIVERY_ROUNDS; round++) {
+      expect(await flush()).toBe(1); // sigue pendiente antes de la ronda `round`
+      await bus.idle();
+      expect(stuck.emailAttempts).toBe(round * ATTEMPTS_PER_DELIVERY);
+    }
+    const fresh = await make('nueva', hoursAgo(1));
+    expect(await flush()).toBe(1); // la atascada ya no se recoge y no bloquea a la nueva
+    await bus.idle();
+    expect(published).toContain(fresh.id);
+    expect(published.filter((id) => id === stuck.id)).toHaveLength(MAX_EMAIL_DELIVERY_ROUNDS);
+  });
+
+  it('una entrega en vivo fallida (4 intentos) deja la fila pendiente; fuera de ventana no suma intentos', async () => {
+    const email = new RecordingEmail();
+    email.failWith = new Error('Brevo caído');
+    let now = NOW;
+    registerEmailObserver({
+      bus, notifications: repo, email, now: () => now,
+      users: new InMemoryUsers([{ id: 'u1', name: 'Ana', email: 'ana@horariouni.test', passwordHash: 'h', role: 'STUDENT', active: true }]),
+    });
+    const n = await make('A', hoursAgo(1));
+    await bus.publish('NotificationCreated', { notificationId: n.id, userId: 'u1', title: 'A', message: 'A', kind: 'SCHEDULE_ADDED' });
+    expect(n.emailAttempts).toBe(ATTEMPTS_PER_DELIVERY);
+    expect(await repo.listPendingEmail(new Date(0), 10)).toHaveLength(1);
+    now = OUTSIDE;
+    await bus.publish('NotificationCreated', { notificationId: n.id, userId: 'u1', title: 'A', message: 'A', kind: 'SCHEDULE_ADDED' });
+    expect(n.emailAttempts).toBe(ATTEMPTS_PER_DELIVERY);
   });
 
   it('ejecuciones solapadas: la segunda vuelve de inmediato con 0', async () => {

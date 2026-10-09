@@ -68,8 +68,11 @@ if (require.main === module) {
   );
   const server = app.listen(config.port, () => console.log(`API en http://localhost:${config.port}/api`));
   // Cierre ordenado: detiene los cron, espera a los observadores en vuelo y termina los streams SSE.
+  let shuttingDown = false;
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
-    process.once(signal, () => {
+    process.on(signal, () => {
+      if (shuttingDown) return; // una segunda señal no repite el cierre
+      shuttingDown = true;
       setTimeout(() => process.exit(1), 10_000).unref(); // salida forzada si algo no termina
       syncJob.stop();
       flushJob.stop();
