@@ -53,6 +53,9 @@ Stack: React 18 + Vite (frontend), Node 20 + Express + Prisma + PostgreSQL (back
 | `SYNC_CRON` | Cron de sincronización automática | `0 3 * * *` |
 | `SYNC_CONCURRENCY` | Estudiantes sincronizados en paralelo | `5` |
 | `TRUST_PROXY` | Nº de proxies de confianza (`trust proxy`); `1` en Docker (nginx) para que rate-limit y auditoría vean la IP real | `0` |
+| `EMAIL_MODE`, `BREVO_API_KEY`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME`, `EMAIL_REDIRECT_TO` | Correo (`console` por defecto); ver «Eventos y patrón Observer». Nunca commitear claves | `console`, vacíos, `Horario UNI` |
+| `NOTIFY_FLUSH_CRON`, `NOTIFY_WINDOW_START`, `NOTIFY_WINDOW_END`, `NOTIFY_WINDOW_TZ` | Job de correos pendientes y ventana de envío | `*/5 * * * *`, `6`, `22`, `America/Bogota` |
+| `SSE_HEARTBEAT_MS` | Latido del flujo SSE (ms) | `25000` |
 | `SEED_PASSWORD` | Contraseña de los usuarios **nuevos** del seed (no se modifica la de usuarios existentes). En `NODE_ENV=production` es obligatoria y no puede ser la pública `Cambiar123!` | `Cambiar123!` (solo desarrollo) |
 
 ## Docker
@@ -126,12 +129,144 @@ Contraseña de todos: el valor de `SEED_PASSWORD` (por defecto, el de `backend/.
 | Repository | Puertos en `schedule/application/ports.ts` y `auth/application/ports.ts`; `Prisma*Repository.ts` en `infrastructure/` |
 | Adapter | `schedule/infrastructure/MockInstitutionalAdapter.ts` implementa `InstitutionalPort` |
 | Template Method | `schedule/infrastructure/exporters/BaseExporter.ts` (+ `PdfExporter`, `IcsExporter`) |
-| Observer / Domain Events | `shared/eventBus.ts` (`ScheduleChanged`), `modules/audit/auditListener.ts` |
+| Observer / Domain Events | Bus tipado `shared/events/EventBus.ts` con observadores en `modules/audit/auditObserver.ts`, `modules/notifications/application/{Notification,Email}Observer.ts`, `modules/schedule/observers/syncStatsObserver.ts` y `modules/realtime/RealtimeObserver.ts`; flujo SSE en `modules/realtime/SseHub.ts`; en el navegador `frontend/src/shared/realtime.ts` (`RealtimeClient`). Ver «Eventos y patrón Observer» |
 | Facade | `schedule/application/SyncSchedule.ts` (adaptador → diff → persistencia → eventos) |
 | Chain of Responsibility | Cadena de middlewares Express: `shared/http/app.ts`, `auth.ts` (`authenticate` → `requireRole`), `errorHandler.ts` |
 | Decorator | `shared/audit.ts` (`withAudit`), aplicado en `shared/container.ts` |
 | Dependency Injection | `shared/container.ts` (`buildContainer`), cableado en `main.ts` (`wire`) |
 | Singleton | `shared/prisma.ts` (un `PrismaClient` por proceso) |
+
+## Eventos y patrón Observer
+
+El módulo de eventos desacopla quien detecta un hecho (la sincronización) de quienes reaccionan (auditoría, estadísticas, notificaciones, correo, tiempo real). El publicador solo llama a `bus.publish(tipo, payload)`.
+
+```
+Backend (Sujeto: EventBus, backend/src/shared/events/EventBus.ts)
+
+ SyncSchedule ─ publish ─▶ ScheduleChanged ──▶ audit (100) ─▶ notifications (50) ─▶ realtime-schedule (30)
+                                                                      │
+                                                          publish NotificationCreated
+                                                                      ▼
+                           NotificationCreated ──▶ realtime-notification (30) ─▶ email (10)
+ SyncSchedule ─ publish ─▶ SyncCompleted ────▶ sync-stats (40)
+ SyncSchedule ─ publish ─▶ SyncFailed        (sin observadores; queda en el historial)
+
+Navegador (Sujeto: flujo SSE leído por RealtimeClient, frontend/src/shared/realtime.ts)
+
+ GET /api/events/stream ──▶ RealtimeClient ──▶ ready               ──▶ useNotifications (recarga la campana)
+                                           ├─▶ notification        ──▶ useNotifications (campana + toast)
+                                           └─▶ schedule-changed    ──▶ SchedulePage (recarga el calendario + toast)
+```
+
+Un número mayor se ejecuta antes. Un mismo tipo de evento se entrega en secuencia (no en paralelo); `NotificationCreated` es un evento distinto, publicado desde dentro del observador `notifications`.
+
+### Eventos
+
+| Evento | Lo publica | Payload |
+|---|---|---|
+| `ScheduleChanged` | `SyncSchedule.ts` (uno por estudiante con cambios) | `userId`, `semester`, `changes[]` |
+| `SyncCompleted` | `SyncSchedule.ts` | `runId`, `trigger` (`MANUAL`/`CRON`), `studentsSynced`, `changesCount`, `failures`, `changesByType` (`ADDED`/`UPDATED`/`CANCELLED`) |
+| `SyncFailed` | `SyncSchedule.ts` | `runId`, `trigger`, `message` |
+| `NotificationCreated` | `NotificationObserver.ts` y `flushPendingEmails.ts` (este último con `replay: true`) | `notificationId`, `userId`, `title`, `message`, `kind` (`SCHEDULE_ADDED`/`SCHEDULE_UPDATED`/`SCHEDULE_CANCELLED`), `replay?` |
+
+El catálogo tipado está en `backend/src/shared/events/types.ts` (`EventMap`).
+
+### Observadores
+
+| Observador | Prioridad | Evento | Qué hace | Archivo |
+|---|---|---|---|---|
+| `audit` | 100 | `ScheduleChanged` | Registra `SCHEDULE_CHANGED` en `AuditLog` (actor `system`) | `backend/src/modules/audit/auditObserver.ts` |
+| `notifications` | 50 | `ScheduleChanged` | Crea una `Notification` por cambio y publica `NotificationCreated` | `backend/src/modules/notifications/application/NotificationObserver.ts` |
+| `sync-stats` | 40 | `SyncCompleted` | Guarda el desglose de cambios en `SyncRun.stats` | `backend/src/modules/schedule/observers/syncStatsObserver.ts` |
+| `realtime-schedule` | 30 | `ScheduleChanged` | Envía `schedule-changed` por SSE al usuario dueño | `backend/src/modules/realtime/RealtimeObserver.ts` |
+| `realtime-notification` | 30 | `NotificationCreated` | Envía `notification` por SSE al dueño (dentro de la ventana y sin `replay`) | `backend/src/modules/realtime/RealtimeObserver.ts` |
+| `email` | 10 (3 reintentos) | `NotificationCreated` | Envía el correo dentro de la ventana; idempotente por `emailedAt` | `backend/src/modules/notifications/application/EmailObserver.ts` |
+| Campana y toasts | — | `ready`, `notification` | Carga/actualiza la lista y el contador de no leídas y muestra un toast | `frontend/src/features/notifications/` (`useNotifications.ts`, `NotificationBell.tsx`, `ToastProvider.tsx`) |
+| Recarga del calendario | — | `schedule-changed` | Vuelve a pedir el horario y avisa con un toast | `frontend/src/features/schedule/SchedulePage.tsx` |
+
+El registro de los observadores del backend está en `wire()` de `backend/src/main.ts`.
+
+### Semántica del bus
+
+- **Orden:** prioridad descendente; a igual prioridad, orden de suscripción. La entrega de un evento es secuencial.
+- **Aislamiento:** si un observador falla no afecta a los demás.
+- **Reintentos:** por defecto 2 reintentos con espera exponencial `backoffMs * 2^(intento-1)` (base 1000 ms); `email` usa 3. Agotados, la entrega queda `FAILED`.
+- **`once`:** la suscripción se retira antes de su primera entrega. **`unsubscribe()`** retira una suscripción.
+- **`idle()`:** espera las publicaciones en vuelo (incluidas las lanzadas desde observadores); se usa en pruebas y en el cierre.
+- **`publish` nunca rechaza:** devuelve un `DeliveryReport`. Si falla la escritura del historial solo se registra en consola.
+- **Historial persistente:** cada evento se guarda en `DomainEvent` y cada entrega (observador, estado, intentos, error) en `EventDelivery` (`PrismaEventLog.ts`). El administrador lo ve en la pantalla «Eventos recientes» (`frontend/src/features/admin/EventsPanel.tsx`, `GET /api/admin/events`).
+
+### Ventana de envío (RRF-05)
+
+Las notificaciones salientes solo se entregan entre las **6:00 y las 22:00 (hora de America/Bogotá)**; configurable con `NOTIFY_WINDOW_START`, `NOTIFY_WINDOW_END` y `NOTIFY_WINDOW_TZ` (`backend/src/shared/window.ts`).
+
+| Se limita a la ventana | No se limita |
+|---|---|
+| Push SSE `notification` (`realtime-notification`) | Creación de la notificación en la app (la campana la muestra al recargar) |
+| Correo (`email`) | Push SSE `schedule-changed` (solo recarga el calendario) |
+
+Un correo que cae fuera de la ventana queda pendiente (`Notification.emailedAt` nulo). El job `backend/src/jobs/notificationFlushJob.ts` (cron `NOTIFY_FLUSH_CRON`, por defecto cada 5 min) llama a `flushPendingEmails`, que dentro de la ventana re-publica `NotificationCreated` con `replay: true` para las pendientes de las últimas 48 h (hasta 100 por pasada). Con `replay` solo reacciona el correo; el push SSE lo ignora.
+
+### Correo
+
+El puerto es `EmailPort` (`backend/src/modules/notifications/application/ports.ts`). Se elige con `EMAIL_MODE` (`buildEmailAdapter.ts`):
+
+- `console` (por defecto): `ConsoleEmailAdapter` imprime `[email:console] para=… asunto=…`; no envía nada.
+- `brevo`: `BrevoEmailAdapter` envía por la API de Brevo.
+
+Variables (nombres; valores de ejemplo en `backend/.env.example`): `EMAIL_MODE`, `BREVO_API_KEY`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME`, `EMAIL_REDIRECT_TO`, `NOTIFY_FLUSH_CRON`, `NOTIFY_WINDOW_START`, `NOTIFY_WINDOW_END`, `NOTIFY_WINDOW_TZ`, `SSE_HEARTBEAT_MS`.
+
+Reglas de seguridad:
+
+- La clave de Brevo va solo en `backend/.env` (ignorado por git) y nunca se registra en el log.
+- `EMAIL_MODE=brevo` exige `BREVO_API_KEY` y `MAIL_FROM_EMAIL`; fuera de producción exige además `EMAIL_REDIRECT_TO`, de modo que los usuarios de prueba nunca reciben correo. Si falta algo, el backend no arranca (`backend/src/shared/safeEmailConfig.ts`).
+- Con `EMAIL_REDIRECT_TO`, todo correo va a esa dirección y el asunto se prefija con `[DEV → destinatario real]`.
+
+Cómo activar Brevo de forma segura:
+
+1. Verificar el remitente (o el dominio) en Brevo.
+2. Poner en `backend/.env`: `BREVO_API_KEY`, `MAIL_FROM_EMAIL` y `MAIL_FROM_NAME`.
+3. Poner `EMAIL_REDIRECT_TO` con **su propia** dirección.
+4. Cambiar a `EMAIL_MODE=brevo` y reiniciar el backend.
+5. Provocar un cambio (ver «Restablecer los datos de demo») y comprobar que llega el correo a su dirección y que el panel de eventos muestra `email` en `OK`.
+6. Rotar la clave si alguna vez se compartió en un chat o se subió a git.
+
+### Tiempo real
+
+`GET /api/events/stream` es un flujo SSE (`text/event-stream`) autenticado con el JWT en la cabecera `Authorization`. Por eso el cliente (`RealtimeClient`) usa `fetch` en streaming y no `EventSource`, que no permite cabeceras y obligaría a poner el token en la URL. Reconecta con espera exponencial (1 s a 30 s).
+
+- Cabeceras: `Content-Type: text/event-stream; charset=utf-8`, `Cache-Control: no-cache, no-transform`, `Connection: keep-alive`, `X-Accel-Buffering: no`.
+- Al conectar se envía `retry: 3000` y el evento `ready`; cada 25 s (`SSE_HEARTBEAT_MS`) un comentario `: ping` mantiene viva la conexión.
+- Aislamiento por usuario (RRF-04): `SseHub.sendToUser` solo escribe en las conexiones del dueño del evento.
+- **Límite, un solo proceso:** `SseHub` guarda las conexiones en memoria. Con varias réplicas del backend, un evento solo llega a los usuarios conectados a la réplica que lo procesó; haría falta un bus compartido (p. ej. Redis pub/sub), no incluido.
+- **Limitación conocida:** una conexión abierta no se corta cuando expira o se revoca el JWT; sigue recibiendo eventos hasta que el cliente se desconecta (el token solo se valida al abrir el flujo).
+
+### API y tablas nuevas
+
+| Endpoint | Rol | Descripción |
+|---|---|---|
+| `GET /api/notifications?unread=&limit=` | autenticado | Notificaciones propias (`limit` 1–100, 30 por defecto) y `unread` |
+| `POST /api/notifications/:id/read` | autenticado | Marca una propia como leída (`204`; `404` si no existe o es ajena) |
+| `POST /api/notifications/read-all` | autenticado | Marca todas las propias como leídas |
+| `GET /api/events/stream` | autenticado | Flujo SSE del usuario |
+| `GET /api/admin/events?limit=` | ADMIN | Eventos recientes con sus entregas (`limit` 1–100, 20 por defecto) |
+
+Tablas (migración Prisma): `DomainEvent`, `EventDelivery`, `Notification`; además `SyncRun.stats` (JSON).
+
+### Restablecer los datos de demo en desarrollo
+
+Solo sobre la base de desarrollo de este proyecto. La primera sincronización tras un seed limpio carga el horario base; la siguiente produce cambios y, por tanto, notificaciones. Para repetir la demostración, en `psql` (o cualquier cliente) contra la base de desarrollo:
+
+```sql
+DELETE FROM "EventDelivery";
+DELETE FROM "DomainEvent";
+DELETE FROM "Notification";
+DELETE FROM "ScheduleChange";
+DELETE FROM "ClassSession";
+DELETE FROM "SyncRun";
+```
+
+y luego `cd backend && npm run seed`. Con un estudiante conectado, el primer «Sincronizar ahora» del administrador carga el horario base; el segundo genera los cambios (ALG101, PHY201 cancelada, LAB301) y las notificaciones aparecen en la campana, con toast y recarga automática del calendario.
 
 ## Adaptador institucional mock y cómo sustituirlo
 
@@ -147,12 +282,14 @@ Para integrar el sistema real: crear una clase que implemente `InstitutionalPort
 
 ## Fuera de alcance de esta iteración
 
-Registro de usuarios / OTP, detección de huecos, notificaciones (el evento `ScheduleChanged` se emite y audita, pero no se envía), búsqueda, CRUD de facultades/programas e integración con Brevo.
+Registro de usuarios / OTP, detección de huecos, búsqueda y CRUD de facultades/programas.
+
+Del módulo de notificaciones ya están entregados: bus de eventos, notificaciones en la app, tiempo real y correo con ventana de envío y la integración con Brevo (adaptador y pruebas con `fetch` simulado; el envío real queda por activar siguiendo «Cómo activar Brevo de forma segura»). Siguen pendientes: notificaciones personalizadas (RF-NOT-01), recordatorios programados (RF-NOT-02) y canal por usuario (RF-NOT-04).
 
 ## Pruebas
 
 ```bash
-cd backend  && npm test && npm run test:cov     # 82 tests; cobertura: ver nota
+cd backend  && npm test && npm run test:cov     # 185 tests (frontend: 144); cobertura backend ~96,7 % líneas, ~95,3 % ramas (umbral 70/60)
 cd frontend && npx vitest run && npx tsc --noEmit -p tsconfig.app.json && npm run build
 ```
 
