@@ -2,9 +2,11 @@ account_circle
 alarm
 apartment
 arrow_forward
+bolt
 calendar_month
 check_circle
 close
+done_all
 error
 event
 folder_managed
@@ -16,9 +18,13 @@ location_on
 lock
 logout
 mail
+mark_email_read
+notifications
+notifications_active
 person
 picture_as_pdf
 priority_high
+refresh
 schedule
 school
 sync

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDateTime, statusBadge, triggerLabel } from './runs';
+import { eventTypeLabel, formatDateTime, statsLabel, statusBadge, triggerLabel } from './runs';
 
 describe('statusBadge', () => {
   it.each([
@@ -44,5 +44,26 @@ describe('formatDateTime', () => {
   });
   it('tolera fechas inválidas', () => {
     expect(formatDateTime('nope')).toBe('—');
+  });
+});
+
+describe('statsLabel', () => {
+  it('formatea +agregadas ~modificadas −canceladas', () => {
+    expect(statsLabel({ added: 2, updated: 5, cancelled: 1 })).toBe('+2 ~5 −1');
+    expect(statsLabel({ added: 0, updated: 0, cancelled: 0 })).toBe('+0 ~0 −0');
+  });
+  it('devuelve null si no hay estadísticas', () => {
+    expect(statsLabel(null)).toBeNull();
+    expect(statsLabel(undefined)).toBeNull();
+  });
+});
+
+describe('eventTypeLabel', () => {
+  it('traduce los tipos de evento conocidos y deja el resto igual', () => {
+    expect(eventTypeLabel('ScheduleChanged')).toBe('Horario cambiado');
+    expect(eventTypeLabel('SyncCompleted')).toBe('Sincronización completada');
+    expect(eventTypeLabel('SyncFailed')).toBe('Sincronización fallida');
+    expect(eventTypeLabel('NotificationCreated')).toBe('Notificación creada');
+    expect(eventTypeLabel('Otro')).toBe('Otro');
   });
 });

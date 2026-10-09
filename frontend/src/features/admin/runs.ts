@@ -6,6 +6,25 @@ export interface Run {
   studentsSynced: number;
   changesCount: number;
   status: string;
+  stats?: RunStats | null;
+}
+
+export interface RunStats { added: number; updated: number; cancelled: number }
+
+/** "+agregadas ~modificadas −canceladas"; null si la corrida no guardó estadísticas. */
+export function statsLabel(stats: RunStats | null | undefined): string | null {
+  return stats ? `+${stats.added} ~${stats.updated} −${stats.cancelled}` : null;
+}
+
+const EVENT_LABELS: Record<string, string> = {
+  ScheduleChanged: 'Horario cambiado',
+  SyncCompleted: 'Sincronización completada',
+  SyncFailed: 'Sincronización fallida',
+  NotificationCreated: 'Notificación creada',
+};
+
+export function eventTypeLabel(type: string): string {
+  return EVENT_LABELS[type] ?? type;
 }
 
 export interface Badge { label: string; classes: string; dot: string }

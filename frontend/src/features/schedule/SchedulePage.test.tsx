@@ -4,6 +4,10 @@ import userEvent from '@testing-library/user-event';
 import SchedulePage from './SchedulePage';
 import { api } from '../../shared/api';
 import { mk } from './fixtures';
+import { act } from '@testing-library/react';
+import { ToastProvider } from '../notifications/ToastProvider';
+import { RealtimeProvider } from '../../shared/RealtimeProvider';
+import { FakeRealtime } from '../../shared/fakeRealtime';
 
 vi.mock('../../shared/api', async (orig) => {
   const actual = await orig<typeof import('../../shared/api')>();
@@ -94,5 +98,36 @@ describe('SchedulePage', () => {
     get.mockRejectedValue(new Error('Falla de red'));
     render(<SchedulePage />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Falla de red');
+  });
+
+  it('al llegar schedule-changed recarga el horario sin parpadeo y avisa con un toast', async () => {
+    get.mockResolvedValueOnce({ userId: 'u', semester: '2026-2', enrolled: true, sessions });
+    const fake = new FakeRealtime();
+    render(<ToastProvider><RealtimeProvider client={fake}><SchedulePage /></RealtimeProvider></ToastProvider>);
+    await screen.findByRole('heading', { level: 1, name: /Mi horario/ });
+    expect(get).toHaveBeenCalledTimes(1);
+
+    get.mockResolvedValueOnce({
+      userId: 'u', semester: '2026-2', enrolled: true,
+      sessions: [...sessions, mk({ externalId: 'e', courseName: 'Ética', startTime: '16:00', endTime: '18:00' })],
+    });
+    act(() => fake.emit('schedule-changed', { semester: '2026-2', count: 1 }));
+    expect(screen.queryByText('Cargando horario…')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /Mi horario/ })).toBeInTheDocument();
+    await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    expect((await screen.findAllByText('Ética')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Tu horario cambió')).toBeInTheDocument();
+  });
+
+  it('si la recarga falla conserva el horario que ya se mostraba', async () => {
+    get.mockResolvedValueOnce({ userId: 'u', semester: '2026-2', enrolled: true, sessions });
+    const fake = new FakeRealtime();
+    render(<ToastProvider><RealtimeProvider client={fake}><SchedulePage /></RealtimeProvider></ToastProvider>);
+    await screen.findByRole('heading', { level: 1, name: /Mi horario/ });
+    get.mockRejectedValueOnce(new Error('Falla de red'));
+    act(() => fake.emit('schedule-changed', {}));
+    await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /Mi horario/ })).toBeInTheDocument();
   });
 });

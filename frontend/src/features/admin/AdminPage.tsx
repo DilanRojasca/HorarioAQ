@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../../shared/api';
-import { formatDateTime, statusBadge, triggerLabel } from './runs';
+import EventsPanel from './EventsPanel';
+import { formatDateTime, statsLabel, statusBadge, triggerLabel } from './runs';
 import type { Run } from './runs';
 
 interface SyncResult { runId: string; studentsSynced: number; changesCount: number; failures?: number }
@@ -14,6 +15,7 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [eventsKey, setEventsKey] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -33,6 +35,7 @@ export default function AdminPage() {
       const r = await api.post<SyncResult>('/admin/sync');
       setResult(r);
       await load();
+      setEventsKey((k) => k + 1);
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) setNotice('Ya hay una sincronización en curso');
       else setError(e instanceof Error ? e.message : 'Error al sincronizar');
@@ -139,6 +142,7 @@ export default function AdminPage() {
           <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 md:grid-cols-2">
             {runs.map((r) => {
               const badge = statusBadge(r.status);
+              const stats = statsLabel(r.stats);
               return (
                 <li key={r.id} className={`${card} p-3.5`}>
                   <div className="mb-3 flex items-center justify-between gap-2">
@@ -165,12 +169,25 @@ export default function AdminPage() {
                       <dd className={`m-0 text-body-md font-medium ${r.changesCount > 0 ? 'text-secondary' : 'text-on-surface'}`}>{r.changesCount}</dd>
                     </div>
                   </dl>
+                  {stats && r.stats && (
+                    <p className="m-0 mt-3 flex flex-wrap items-baseline gap-x-2 border-t border-outline-variant/60 pt-2.5">
+                      <span className="text-label-sm uppercase text-on-surface-variant">Detalle</span>
+                      <span
+                        className="font-mono text-body-md font-semibold text-on-surface"
+                        aria-label={`${r.stats.added} agregadas, ${r.stats.updated} modificadas, ${r.stats.cancelled} canceladas`}
+                      >
+                        {stats}
+                      </span>
+                    </p>
+                  )}
                 </li>
               );
             })}
           </ul>
         )}
       </section>
+
+      <EventsPanel refreshKey={eventsKey} />
     </div>
   );
 }

@@ -56,6 +56,8 @@ export default {
         'tertiary-fixed-dim': '#b7cad0',
         'inverse-surface': '#23323b',
       },
+      keyframes: { 'toast-in': { from: { opacity: '0', transform: 'translateY(8px)' }, to: { opacity: '1', transform: 'translateY(0)' } } },
+      animation: { 'toast-in': 'toast-in 180ms ease-out' },
       borderRadius: { DEFAULT: '0.25rem', lg: '0.5rem', xl: '0.75rem', full: '9999px' },
       spacing: {
         'space-xs': '0.25rem', 'space-xl': '2rem', gutter: '1rem', 'margin-tablet': '1.5rem',

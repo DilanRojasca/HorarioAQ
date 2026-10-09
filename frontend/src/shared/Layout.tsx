@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthContext';
+import NotificationBell from '../features/notifications/NotificationBell';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -25,6 +26,7 @@ export default function Layout() {
         </div>
         <div className="flex shrink-0 items-center gap-3">
           {user?.name && <span className="hidden max-w-[16rem] truncate text-body-md text-on-primary sm:inline">{user.name}</span>}
+          {user?.role === 'STUDENT' && <NotificationBell />}
           <button
             type="button"
             onClick={() => logout()}

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useRealtime } from '../../shared/RealtimeProvider';
 import { useAuth } from '../auth/AuthContext';
+import { useToast } from '../notifications/ToastProvider';
 import ClassDetail from './ClassDetail';
 import DayAgenda from './DayAgenda';
 import ExportMenu from './ExportMenu';
@@ -10,8 +12,9 @@ import type { Session } from './types';
 import { useSchedule } from './useSchedule';
 
 export default function SchedulePage() {
-  const { data, error, loading } = useSchedule();
+  const { data, error, loading, refetch } = useSchedule();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [selected, setSelected] = useState<Session | null>(null);
   const [, setTick] = useState(0);
   // Refresca "En curso / Siguiente" cada minuto.
@@ -19,6 +22,11 @@ export default function SchedulePage() {
     const id = setInterval(() => setTick((t) => t + 1), 60_000);
     return () => clearInterval(id);
   }, []);
+  // Observador del flujo en vivo: el servidor avisa de que el horario cambió y se recarga sin parpadeo.
+  useRealtime('schedule-changed', () => {
+    void refetch();
+    toast({ title: 'Tu horario cambió', message: 'Actualizamos tu horario con los últimos cambios.', tone: 'info' });
+  });
   const now = new Date();
 
   if (loading) return <p role="status" className="m-0 py-6 text-center text-body-md text-on-surface-variant">Cargando horario…</p>;

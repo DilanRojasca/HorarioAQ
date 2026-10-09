@@ -9,6 +9,8 @@ vi.mock('../../shared/api', async (orig) => {
   return { ...actual, api: { get: vi.fn(), post: vi.fn() } };
 });
 
+vi.mock('./EventsPanel', () => ({ default: ({ refreshKey }: { refreshKey?: number }) => <p>Panel de eventos {refreshKey}</p> }));
+
 const get = api.get as unknown as ReturnType<typeof vi.fn>;
 const post = api.post as unknown as ReturnType<typeof vi.fn>;
 
@@ -19,6 +21,28 @@ const runs = [
 
 describe('AdminPage', () => {
   beforeEach(() => { get.mockReset(); post.mockReset(); });
+
+  it('muestra las estadísticas de cada corrida cuando existen y el panel de eventos', async () => {
+    get.mockResolvedValue([
+      { ...runs[0], stats: { added: 2, updated: 1, cancelled: 0 } },
+      { ...runs[1], stats: null },
+    ]);
+    render(<AdminPage />);
+    expect(await screen.findByText('+2 ~1 −0')).toBeInTheDocument();
+    expect(screen.getAllByText(/^\+\d+ ~\d+ −\d+$/)).toHaveLength(1);
+    expect(screen.getByText('Panel de eventos 0')).toBeInTheDocument();
+  });
+
+  it('tras sincronizar le pide al panel de eventos que se actualice', async () => {
+    get.mockResolvedValue(runs);
+    post.mockResolvedValue({ runId: 'r', studentsSynced: 5, changesCount: 2, failures: 0 });
+    const user = userEvent.setup();
+    render(<AdminPage />);
+    await screen.findByText('Manual');
+    await user.click(screen.getByRole('button', { name: 'Sincronizar ahora' }));
+    expect(await screen.findByText('Panel de eventos 1')).toBeInTheDocument();
+  });
+
 
   it('muestra un estado de carga sin parpadear "Aún no hay corridas"', async () => {
     let resolve!: (v: unknown) => void;
