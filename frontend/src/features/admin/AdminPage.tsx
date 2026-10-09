@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../../shared/api';
 import EventsPanel from './EventsPanel';
-import { formatDateTime, statsLabel, statusBadge, triggerLabel } from './runs';
+import { formatDateTime, statsDescription, statsLabel, statusBadge, triggerLabel } from './runs';
 import type { Run } from './runs';
 
 interface SyncResult { runId: string; studentsSynced: number; changesCount: number; failures?: number }
@@ -172,11 +172,9 @@ export default function AdminPage() {
                   {stats && r.stats && (
                     <p className="m-0 mt-3 flex flex-wrap items-baseline gap-x-2 border-t border-outline-variant/60 pt-2.5">
                       <span className="text-label-sm uppercase text-on-surface-variant">Detalle</span>
-                      <span
-                        className="font-mono text-body-md font-semibold text-on-surface"
-                        aria-label={`${r.stats.added} agregadas, ${r.stats.updated} modificadas, ${r.stats.cancelled} canceladas`}
-                      >
-                        {stats}
+                      <span className="font-mono text-body-md font-semibold text-on-surface">
+                        <span aria-hidden="true">{stats}</span>
+                        <span className="sr-only">{statsDescription(r.stats)}</span>
                       </span>
                     </p>
                   )}

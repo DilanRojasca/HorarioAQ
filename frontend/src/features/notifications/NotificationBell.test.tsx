@@ -144,4 +144,28 @@ describe('NotificationBell', () => {
     await user.click(await screen.findByRole('button', { name: 'Notificaciones, 0 sin leer' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión');
   });
+
+  it('aria-controls solo existe mientras el panel está abierto', async () => {
+    const { user, button } = await setup();
+    expect(button).not.toHaveAttribute('aria-controls');
+    await user.click(button);
+    expect(button).toHaveAttribute('aria-controls');
+    await user.keyboard('{Escape}');
+    expect(button).not.toHaveAttribute('aria-controls');
+  });
+
+  it('al abrir el foco entra al panel', async () => {
+    const { user, button } = await setup();
+    await user.click(button);
+    expect(screen.getByRole('region', { name: 'Notificaciones' })).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it('tras "Marcar leída" el foco pasa al siguiente "Marcar leída" y luego a "Marcar todas" o al panel', async () => {
+    const { user, button } = await setup();
+    await user.click(button);
+    await user.click(screen.getByRole('button', { name: /Marcar leída: Título a/ }));
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: /Marcar leída: Título b/ })).toHaveFocus());
+    await user.click(screen.getByRole('button', { name: /Marcar leída: Título b/ }));
+    await vi.waitFor(() => expect(screen.getByRole('region', { name: 'Notificaciones' })).toHaveFocus());
+  });
 });

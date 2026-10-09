@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../shared/api';
 import { eventTypeLabel, formatDateTime, statusBadge } from './runs';
 
@@ -26,17 +26,22 @@ export default function EventsPanel({ refreshKey = 0 }: { refreshKey?: number })
   const [events, setEvents] = useState<AdminEvent[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const seq = useRef(0);
 
   const load = useCallback(async () => {
+    const mine = ++seq.current;
     setBusy(true);
     try {
-      setEvents(await api.get<AdminEvent[]>(`/admin/events?limit=${LIMIT}`));
+      const data = await api.get<AdminEvent[]>(`/admin/events?limit=${LIMIT}`);
+      if (mine !== seq.current) return; // respuesta obsoleta: gana la última
+      setEvents(data);
       setError('');
     } catch (e) {
+      if (mine !== seq.current) return;
       setError(e instanceof Error ? e.message : 'No se pudieron cargar los eventos');
       setEvents((prev) => prev ?? []);
     } finally {
-      setBusy(false);
+      if (mine === seq.current) setBusy(false);
     }
   }, []);
   useEffect(() => { void load(); }, [load, refreshKey]);
@@ -84,11 +89,11 @@ export default function EventsPanel({ refreshKey = 0 }: { refreshKey?: number })
                   <p className="m-0 mt-2 text-body-sm text-on-surface-variant">Sin entregas registradas</p>
                 ) : (
                   <ul aria-label="Entrega por observador" className="m-0 mt-2.5 flex list-none flex-wrap gap-1.5 p-0">
-                    {ev.deliveries.map((d) => {
+                    {ev.deliveries.map((d, i) => {
                       const badge = statusBadge(d.status);
                       return (
                         <li
-                          key={d.observer}
+                          key={`${d.observer}-${i}`}
                           title={d.error}
                           className={`inline-flex min-h-[24px] max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-label-sm ${badge.classes}`}
                         >
@@ -96,6 +101,7 @@ export default function EventsPanel({ refreshKey = 0 }: { refreshKey?: number })
                           <span className="truncate font-semibold">{d.observer}</span>
                           <span>{badge.label}</span>
                           {d.attempts > 1 && <span>· {d.attempts} intentos</span>}
+                          {d.error && <span className="sr-only">. Error: {d.error}</span>}
                         </li>
                       );
                     })}

@@ -11,6 +11,7 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const panelId = useId();
   const titleId = useId();
 
@@ -33,6 +34,29 @@ export default function NotificationBell() {
     };
   }, [open]);
 
+  // Al abrir, el foco entra al panel (primer control); Escape lo devuelve a la campana.
+  useEffect(() => {
+    if (open) panelRef.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus();
+  }, [open]);
+
+  /** Marca como leída y mueve el foco al siguiente "Marcar leída", al anterior, a "Marcar todas" o al panel. */
+  async function onMarkRead(id: string, el: HTMLElement) {
+    const panel = panelRef.current;
+    const marks = Array.from(panel?.querySelectorAll<HTMLElement>('[data-mark-read]') ?? []);
+    const at = marks.indexOf(el);
+    const nextId = (marks[at + 1] ?? marks[at - 1])?.dataset.markRead;
+    await markRead(id);
+    setTimeout(() => {
+      const p = panelRef.current;
+      if (!p || p.querySelector(`[data-mark-read="${id}"]`)) return; // falló: el botón sigue ahí, no se mueve el foco
+      const target =
+        (nextId && p.querySelector<HTMLElement>(`[data-mark-read="${nextId}"]`)) ||
+        p.querySelector<HTMLButtonElement>('[data-mark-all]:not([disabled])') ||
+        p;
+      target.focus();
+    }, 0);
+  }
+
   const close = () => { setOpen(false); buttonRef.current?.focus(); };
   const announce = unread === 0 ? '' : unread === 1 ? '1 notificación sin leer' : `${unread} notificaciones sin leer`;
 
@@ -50,7 +74,7 @@ export default function NotificationBell() {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        aria-controls={panelId}
+        aria-controls={open ? panelId : undefined}
         aria-label={`Notificaciones, ${unread} sin leer`}
         className="relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-outline-variant/30 bg-primary text-on-primary hover:bg-surface-tint focus-visible:ring-white focus-visible:ring-offset-primary-container"
       >
@@ -71,9 +95,11 @@ export default function NotificationBell() {
       {open && (
         <section
           id={panelId}
+          ref={panelRef}
+          tabIndex={-1}
           role="region"
           aria-labelledby={titleId}
-          className="fixed inset-x-2 top-[72px] z-50 flex max-h-[calc(100dvh-5.5rem)] flex-col overflow-hidden rounded-[10px] border border-outline-variant bg-surface-container-lowest text-on-surface shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:w-[24rem]"
+          className="fixed inset-x-2 top-[72px] focus:outline-none z-50 flex max-h-[calc(100dvh-5.5rem)] flex-col overflow-hidden rounded-[10px] border border-outline-variant bg-surface-container-lowest text-on-surface shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:w-[24rem]"
         >
           <div className="flex shrink-0 items-center justify-between gap-2 border-b border-outline-variant bg-surface-container-low/60 py-1 pl-4 pr-1">
             <h2 id={titleId} className="m-0 text-title-md text-on-surface">Notificaciones</h2>
@@ -114,7 +140,7 @@ export default function NotificationBell() {
                       <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2">
                         <time dateTime={n.createdAt} className="text-body-sm text-on-surface-variant">{relativeTime(n.createdAt)}</time>
                         {!n.readAt && (
-                          <button type="button" onClick={() => markRead(n.id)} aria-label={`Marcar leída: ${n.title}`} className={`${actionBtn} -mr-3`}>
+                          <button type="button" data-mark-read={n.id} onClick={(e) => void onMarkRead(n.id, e.currentTarget)} aria-label={`Marcar leída: ${n.title}`} className={`${actionBtn} -mr-3`}>
                             <span className="material-symbols-outlined text-[18px]" aria-hidden="true">mark_email_read</span>
                             Marcar leída
                           </button>
@@ -128,7 +154,7 @@ export default function NotificationBell() {
           </div>
 
           <div className="shrink-0 border-t border-outline-variant px-2 py-1">
-            <button type="button" onClick={() => markAllRead()} disabled={unread === 0} className={`${actionBtn} w-full`}>
+            <button type="button" data-mark-all onClick={() => markAllRead()} disabled={unread === 0} className={`${actionBtn} w-full`}>
               <span className="material-symbols-outlined text-[18px]" aria-hidden="true">done_all</span>
               Marcar todas como leídas
             </button>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import EventsPanel from './EventsPanel';
 import { api } from '../../shared/api';
@@ -96,5 +96,36 @@ describe('EventsPanel', () => {
     await screen.findByText('Aún no hay eventos.');
     rerender(<EventsPanel refreshKey={1} />);
     await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+  });
+
+  it('el error de una entrega fallida está en el texto (lector de pantalla) y las claves son únicas aunque un observador se repita', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    get.mockResolvedValue([{
+      id: 'd', type: 'ScheduleChanged', occurredAt: '2026-10-09T15:30:00.000Z', payload: {},
+      deliveries: [
+        { observer: 'email', status: 'FAILED', attempts: 2, error: 'SMTP caído', deliveredAt: '2026-10-09T15:30:09.000Z' },
+        { observer: 'email', status: 'OK', attempts: 1, deliveredAt: '2026-10-09T15:30:10.000Z' },
+      ],
+    }]);
+    render(<EventsPanel />);
+    const chips = await screen.findAllByText('email');
+    expect(chips).toHaveLength(2);
+    expect(chips[0].closest('li')).toHaveTextContent('Error: SMTP caído');
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('una respuesta obsoleta no pisa a la más reciente', async () => {
+    const resolvers: Array<(v: unknown) => void> = [];
+    get.mockImplementation(() => new Promise((r) => { resolvers.push(r); }));
+    const { rerender } = render(<EventsPanel refreshKey={0} />);
+    await vi.waitFor(() => expect(resolvers).toHaveLength(1));
+    rerender(<EventsPanel refreshKey={1} />);
+    await vi.waitFor(() => expect(resolvers).toHaveLength(2));
+    const ev = (type: string) => [{ id: type, type, occurredAt: '2026-10-09T15:30:00.000Z', payload: {}, deliveries: [] }];
+    await act(async () => { resolvers[1](ev('ScheduleChanged')); });
+    await act(async () => { resolvers[0](ev('SyncFailed')); });
+    expect(screen.getByText('Horario cambiado')).toBeInTheDocument();
+    expect(screen.queryByText('Sincronización fallida')).not.toBeInTheDocument();
   });
 });

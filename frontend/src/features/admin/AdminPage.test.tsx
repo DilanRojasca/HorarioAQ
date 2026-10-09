@@ -30,6 +30,7 @@ describe('AdminPage', () => {
     render(<AdminPage />);
     expect(await screen.findByText('+2 ~1 −0')).toBeInTheDocument();
     expect(screen.getAllByText(/^\+\d+ ~\d+ −\d+$/)).toHaveLength(1);
+    expect(screen.getByText('2 agregadas, 1 modificada, 0 canceladas')).toHaveClass('sr-only');
     expect(screen.getByText('Panel de eventos 0')).toBeInTheDocument();
   });
 

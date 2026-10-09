@@ -125,4 +125,68 @@ describe('useNotifications', () => {
     expect(result.current.items).toHaveLength(2);
     expect(list).toHaveBeenCalledTimes(1);
   });
+
+  const window20 = (prefix: string, count = 20) => Array.from({ length: count }, (_, i) => n(`${prefix}${i + 1}`));
+
+  it('ready con más de 20 notificaciones: la lista queda igual a la ventana del servidor, sin item viejo antepuesto y con el contador del servidor', async () => {
+    list.mockResolvedValueOnce({ items: window20('i'), unread: 25 });
+    const { result } = renderHook(() => useNotifications(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => fake.emit('notification', { id: 'L', title: 'Viva', message: 'm', kind: 'ADDED' }));
+    expect(result.current.unread).toBe(26);
+    const serverWindow = [n('L'), ...window20('i', 19)]; // i20 salió de la ventana
+    list.mockResolvedValueOnce({ items: serverWindow, unread: 26 });
+    await act(async () => { fake.emit('ready', {}); });
+    expect(result.current.items.map((i) => i.id)).toEqual(serverWindow.map((i) => i.id));
+    expect(result.current.unread).toBe(26);
+  });
+
+  it('una notificación en vivo durante una recarga en curso se conserva y cuenta una sola vez', async () => {
+    const { result } = renderHook(() => useNotifications(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    let resolve!: (v: Awaited<ReturnType<typeof api.listNotifications>>) => void;
+    list.mockReturnValueOnce(new Promise((r) => { resolve = r; }));
+    let pending!: Promise<void>;
+    act(() => { pending = result.current.reload(); });
+    act(() => fake.emit('notification', { id: 'X', title: 'X', message: 'm', kind: 'ADDED' }));
+    await act(async () => { resolve({ items: [n('a'), n('b')], unread: 1 }); await pending; });
+    expect(result.current.items.map((i) => i.id)).toEqual(['X', 'a', 'b']);
+    expect(result.current.unread).toBe(2);
+  });
+
+  it('si el servidor ya devuelve la notificación en vivo no se duplica ni se cuenta de nuevo', async () => {
+    const { result } = renderHook(() => useNotifications(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    let resolve!: (v: Awaited<ReturnType<typeof api.listNotifications>>) => void;
+    list.mockReturnValueOnce(new Promise((r) => { resolve = r; }));
+    let pending!: Promise<void>;
+    act(() => { pending = result.current.reload(); });
+    act(() => fake.emit('notification', { id: 'X', title: 'X', message: 'm', kind: 'ADDED' }));
+    await act(async () => { resolve({ items: [n('X'), n('a')], unread: 2 }); await pending; });
+    expect(result.current.items.map((i) => i.id)).toEqual(['X', 'a']);
+    expect(result.current.unread).toBe(2);
+  });
+
+  it('una recarga sin eventos en vivo reemplaza el estado por la respuesta del servidor', async () => {
+    const { result } = renderHook(() => useNotifications(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    list.mockResolvedValueOnce({ items: [n('c')], unread: 0 });
+    await act(async () => { await result.current.reload(); });
+    expect(result.current.items.map((i) => i.id)).toEqual(['c']);
+    expect(result.current.unread).toBe(0);
+  });
+
+  it('respuestas obsoletas se ignoran: gana la última recarga', async () => {
+    const { result } = renderHook(() => useNotifications(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    type R = Awaited<ReturnType<typeof api.listNotifications>>;
+    const resolvers: Array<(v: R) => void> = [];
+    list.mockImplementation(() => new Promise<R>((r) => { resolvers.push(r); }));
+    let p1!: Promise<void>; let p2!: Promise<void>;
+    act(() => { p1 = result.current.reload(); p2 = result.current.reload(); });
+    await act(async () => { resolvers[1]({ items: [n('nuevo')], unread: 1 }); await p2; });
+    await act(async () => { resolvers[0]({ items: [n('viejo')], unread: 9 }); await p1; });
+    expect(result.current.items.map((i) => i.id)).toEqual(['nuevo']);
+    expect(result.current.unread).toBe(1);
+  });
 });

@@ -20,6 +20,9 @@ export function useNotifications() {
   // Espejo síncrono de `data`: las transiciones se calculan sobre él para no depender del momento en que React ejecute los actualizadores.
   const current = useRef(data);
   const alive = useRef(true);
+  const seq = useRef(0);
+  // Ids llegados por eventos en vivo desde que empezó la última recarga.
+  const liveSince = useRef(new Set<string>());
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   const update = useCallback((fn: (d: Data) => Data) => {
@@ -28,20 +31,23 @@ export function useNotifications() {
   }, []);
 
   const reload = useCallback(async () => {
+    const mine = ++seq.current;
+    liveSince.current = new Set();
+    const live = liveSince.current;
     try {
       const r = await listNotifications({ limit: LIMIT });
-      if (!alive.current) return;
-      // Conserva las que llegaron en vivo antes de que terminara la carga.
+      if (!alive.current || mine !== seq.current) return; // respuesta obsoleta: gana la última
+      // Solo se conservan las que llegaron en vivo durante esta carga y el servidor aún no devuelve.
       update((d) => {
         const ids = new Set(r.items.map((i) => i.id));
-        const live = d.items.filter((i) => !ids.has(i.id));
-        return { items: [...live, ...r.items], unread: r.unread + live.filter((i) => !i.readAt).length };
+        const extra = d.items.filter((i) => live.has(i.id) && !ids.has(i.id));
+        return { items: [...extra, ...r.items], unread: r.unread + extra.filter((i) => !i.readAt).length };
       });
       setError('');
     } catch (e) {
-      if (alive.current) setError(e instanceof Error ? e.message : 'No se pudieron cargar las notificaciones');
+      if (alive.current && mine === seq.current) setError(e instanceof Error ? e.message : 'No se pudieron cargar las notificaciones');
     } finally {
-      if (alive.current) setLoading(false);
+      if (alive.current && mine === seq.current) setLoading(false);
     }
   }, [update]);
   useEffect(() => { void reload(); }, [reload]);
@@ -55,6 +61,7 @@ export function useNotifications() {
       id: payload.id, kind: payload.kind, title: payload.title, message: payload.message,
       createdAt: new Date().toISOString(), readAt: null,
     };
+    liveSince.current.add(incoming.id);
     update((d) => ({ items: [incoming, ...d.items], unread: d.unread + 1 }));
     toast({ title: payload.title, message: payload.message, tone: 'info' });
   });

@@ -7,7 +7,7 @@ const enc = new TextEncoder();
 function controlledStream() {
   let ctl!: ReadableStreamDefaultController<Uint8Array>;
   const body = new ReadableStream<Uint8Array>({ start(c) { ctl = c; } });
-  return { body, push: (s: string) => ctl.enqueue(enc.encode(s)), close: () => ctl.close() };
+  return { body, push: (s: string) => ctl.enqueue(enc.encode(s)), pushBytes: (b: Uint8Array) => ctl.enqueue(b), close: () => ctl.close() };
 }
 const okResponse = (body: ReadableStream<Uint8Array>) => ({ ok: true, status: 200, body }) as unknown as Response;
 const errorResponse = (status: number) => ({ ok: false, status, body: null }) as unknown as Response;
@@ -17,7 +17,10 @@ const hanging = (init?: RequestInit) =>
     init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
   });
 
-function make(fetchFn: (url: string, init?: RequestInit) => Promise<Response>, sleep = vi.fn(async (_ms: number) => {})) {
+function make(
+  fetchFn: (url: string, init?: RequestInit) => Promise<Response>,
+  sleep: ReturnType<typeof vi.fn<(ms: number, signal?: AbortSignal) => Promise<void>>> = vi.fn(async (_ms: number) => {}),
+) {
   const client = new RealtimeClient({
     url: '/api/events/stream',
     getToken: () => 'tok-123',
@@ -169,5 +172,92 @@ describe('RealtimeClient', () => {
     client.start();
     await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
     client.stop();
+  });
+
+  it('une un carácter multibyte partido entre dos tramos', async () => {
+    const s = controlledStream();
+    const fetchFn = vi.fn().mockResolvedValueOnce(okResponse(s.body)).mockImplementation((_u: string, init?: RequestInit) => hanging(init));
+    const { client } = make(fetchFn);
+    const got = vi.fn();
+    client.subscribe('t', got);
+    client.start();
+    const bytes = enc.encode('event: t\ndata: {"m":"Cálculo ñ"}\n\n');
+    const cut = bytes.indexOf(0xc3) + 1; // entre los dos bytes de "á"
+    s.pushBytes(bytes.slice(0, cut));
+    s.pushBytes(bytes.slice(cut));
+    await vi.waitFor(() => expect(got).toHaveBeenCalledTimes(1));
+    expect(got).toHaveBeenCalledWith({ m: 'Cálculo ñ' });
+    client.stop();
+  });
+
+  it('un tramo sin evento se entrega como "message"', async () => {
+    const s = controlledStream();
+    const fetchFn = vi.fn().mockResolvedValueOnce(okResponse(s.body)).mockImplementation((_u: string, init?: RequestInit) => hanging(init));
+    const { client } = make(fetchFn);
+    const got = vi.fn();
+    client.subscribe('message', got);
+    client.start();
+    s.push('data: hola\n\n');
+    await vi.waitFor(() => expect(got).toHaveBeenCalledWith('hola'));
+    client.stop();
+  });
+
+  it('un último tramo sin línea en blanco se descarta', async () => {
+    const s = controlledStream();
+    const fetchFn = vi.fn().mockResolvedValueOnce(okResponse(s.body)).mockImplementation((_u: string, init?: RequestInit) => hanging(init));
+    const { client } = make(fetchFn);
+    const got = vi.fn();
+    client.subscribe('x', got);
+    client.start();
+    s.push('event: x\ndata: 1\n');
+    s.close();
+    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2)); // reconectó
+    expect(got).not.toHaveBeenCalled();
+    client.stop();
+  });
+
+  it('stop() durante la espera de reconexión no vuelve a conectar', async () => {
+    const fetchFn = vi.fn().mockRejectedValue(new Error('red'));
+    const sleep = vi.fn((_ms: number, signal?: AbortSignal) => new Promise<void>((res) => signal?.addEventListener('abort', () => res())));
+    const { client } = make(fetchFn, sleep);
+    client.start();
+    await vi.waitFor(() => expect(sleep).toHaveBeenCalledTimes(1));
+    client.stop();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(client.status).toBe('stopped');
+  });
+
+  it('si stop() llega entre la respuesta y su continuación el estado no queda en open', async () => {
+    let resolve!: (r: Response) => void;
+    const fetchFn = vi.fn(() => new Promise<Response>((r) => { resolve = r; }));
+    const { client } = make(fetchFn);
+    const seen: RealtimeStatus[] = [];
+    client.onStatus((st) => seen.push(st));
+    client.start();
+    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalled());
+    client.stop();
+    resolve(okResponse(controlledStream().body));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(client.status).toBe('stopped');
+    expect(seen).not.toContain('open');
+  });
+
+  it('sin token no intenta conectar y se queda en idle', async () => {
+    const fetchFn = vi.fn();
+    const client = new RealtimeClient({ getToken: () => null, fetchFn: fetchFn as unknown as typeof fetch, sleep: async () => {} });
+    client.start();
+    await Promise.resolve();
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(client.status).toBe('idle');
+  });
+
+  it('403 detiene el cliente sin reintentar', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(errorResponse(403));
+    const { client, sleep } = make(fetchFn);
+    client.start();
+    await vi.waitFor(() => expect(client.status).toBe('stopped'));
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
   });
 });

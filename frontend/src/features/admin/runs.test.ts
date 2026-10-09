@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { eventTypeLabel, formatDateTime, statsLabel, statusBadge, triggerLabel } from './runs';
+import { eventTypeLabel, formatDateTime, statsDescription, statsLabel, statusBadge, triggerLabel } from './runs';
 
 describe('statusBadge', () => {
   it.each([
@@ -65,5 +65,12 @@ describe('eventTypeLabel', () => {
     expect(eventTypeLabel('SyncFailed')).toBe('Sincronización fallida');
     expect(eventTypeLabel('NotificationCreated')).toBe('Notificación creada');
     expect(eventTypeLabel('Otro')).toBe('Otro');
+  });
+});
+
+describe('statsDescription', () => {
+  it('expande el resumen con singular y plural', () => {
+    expect(statsDescription({ added: 2, updated: 1, cancelled: 0 })).toBe('2 agregadas, 1 modificada, 0 canceladas');
+    expect(statsDescription({ added: 1, updated: 2, cancelled: 1 })).toBe('1 agregada, 2 modificadas, 1 cancelada');
   });
 });

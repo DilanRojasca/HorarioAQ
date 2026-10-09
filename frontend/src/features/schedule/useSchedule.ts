@@ -8,19 +8,21 @@ export function useSchedule() {
   const [loading, setLoading] = useState(true);
   const alive = useRef(true);
   const hasData = useRef(false);
+  const seq = useRef(0);
 
   const load = useCallback(async () => {
+    const mine = ++seq.current;
     try {
       const d = await api.get<WeeklyResult>('/schedule/me');
-      if (!alive.current) return;
+      if (!alive.current || mine !== seq.current) return; // respuesta obsoleta: gana la última
       hasData.current = true;
       setData(d);
       setError('');
     } catch (e) {
       // Una recarga fallida no debe reemplazar un horario que ya se estaba mostrando.
-      if (alive.current && !hasData.current) setError(e instanceof Error ? e.message : 'Error inesperado');
+      if (alive.current && mine === seq.current && !hasData.current) setError(e instanceof Error ? e.message : 'Error inesperado');
     } finally {
-      if (alive.current) setLoading(false);
+      if (alive.current && mine === seq.current) setLoading(false);
     }
   }, []);
 

@@ -16,6 +16,12 @@ export function statsLabel(stats: RunStats | null | undefined): string | null {
   return stats ? `+${stats.added} ~${stats.updated} −${stats.cancelled}` : null;
 }
 
+/** Expansión legible del resumen para lectores de pantalla. */
+export function statsDescription(stats: RunStats): string {
+  const f = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  return `${f(stats.added, 'agregada', 'agregadas')}, ${f(stats.updated, 'modificada', 'modificadas')}, ${f(stats.cancelled, 'cancelada', 'canceladas')}`;
+}
+
 const EVENT_LABELS: Record<string, string> = {
   ScheduleChanged: 'Horario cambiado',
   SyncCompleted: 'Sincronización completada',

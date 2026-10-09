@@ -67,6 +67,7 @@ export class RealtimeClient implements RealtimeSource {
 
   start(): void {
     if (this.controller) return;
+    if (!this.getToken()) return; // sin sesión no se intenta conectar
     const controller = new AbortController();
     this.controller = controller;
     this.setStatus('connecting');
@@ -91,11 +92,13 @@ export class RealtimeClient implements RealtimeSource {
     while (!signal.aborted) {
       try {
         const token = this.getToken();
+        if (!token) { this.halt(controller); return; }
         const res = await this.fetchFn(this.url, {
-          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), Accept: 'text/event-stream' },
+          headers: { Authorization: `Bearer ${token}`, Accept: 'text/event-stream' },
           signal,
         });
-        if (res.status === 401) { this.halt(controller); return; }
+        if (signal.aborted) return; // stop() llegó entre la respuesta y su continuación
+        if (res.status === 401 || res.status === 403) { this.halt(controller); return; }
         if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
         delay = this.initialMs;
         this.setStatus('open');
