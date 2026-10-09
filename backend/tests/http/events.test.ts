@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import { buildContainer } from '../../src/shared/container';
 import { createApp } from '../../src/shared/http/app';
+import { SseHub } from '../../src/modules/realtime/SseHub';
 import { EventBus } from '../../src/shared/events/EventBus';
 import { InMemoryEventLog } from '../../src/shared/events/InMemoryEventLog';
 import { IcsExporter } from '../../src/modules/schedule/infrastructure/exporters/IcsExporter';
@@ -36,7 +37,7 @@ beforeEach(() => {
   app = createApp(buildContainer({
     schedules: new InMemoryScheduleRepo(), enrollments: new InMemoryEnrollmentRepo(['u1']), institutional: inst,
     syncRuns: runs, users: new InMemoryUsers([mkUser('u1', 'STUDENT'), mkUser('admin', 'ADMIN')]),
-    revoked: new InMemoryRevoked(), hasher: new FakeHasher(), tokens: new FakeTokens(), audit, bus, eventLog,
+    revoked: new InMemoryRevoked(), hasher: new FakeHasher(), tokens: new FakeTokens(), audit, bus, eventLog, hub: new SseHub(),
     exporters: { ics: new IcsExporter({ semesterStart: cfg.semesterStart, weeks: 16 }), pdf: new PdfExporter({ semester: '2026-2' }) },
   }, cfg), cfg);
   inst.data.set('u1', [session()]);

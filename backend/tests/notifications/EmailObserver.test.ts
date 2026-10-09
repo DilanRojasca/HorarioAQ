@@ -40,6 +40,13 @@ describe('registerEmailObserver', () => {
     expect(repo.rows[0].emailedAt).toEqual(INSIDE);
   });
 
+  it('sigue enviando el correo de las re-publicaciones (replay)', async () => {
+    await bus.publish('NotificationCreated', {
+      notificationId, userId: 'u1', title: 'Clase cancelada', message: 'Algoritmos', kind: 'SCHEDULE_CANCELLED', replay: true,
+    });
+    expect(email.sent).toHaveLength(1);
+  });
+
   it('fuera de la ventana no envía y queda pendiente, sin error', async () => {
     now = OUTSIDE;
     const report = await publish();

@@ -22,6 +22,7 @@ export const config = {
   mailFromEmail: env.MAIL_FROM_EMAIL || undefined,
   mailFromName: env.MAIL_FROM_NAME || 'Horario UNI',
   emailRedirectTo: env.EMAIL_REDIRECT_TO || undefined,
+  sseHeartbeatMs: Number(env.SSE_HEARTBEAT_MS ?? 25000),
   notifyFlushCron: env.NOTIFY_FLUSH_CRON ?? '*/5 * * * *',
 };
 export type Config = typeof config;

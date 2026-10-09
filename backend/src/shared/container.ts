@@ -3,6 +3,7 @@ import { Config } from './config';
 import { EventBus } from './events/EventBus';
 import { EventLog } from './events/types';
 import { AuditPort } from './ports';
+import { SseHub } from '../modules/realtime/SseHub';
 import { LoginUseCase } from '../modules/auth/application/Login';
 import { LogoutUseCase } from '../modules/auth/application/Logout';
 import { NotificationRepository } from '../modules/notifications/application/ports';
@@ -27,6 +28,7 @@ export interface Ports {
   bus: EventBus;
   eventLog: EventLog;
   notifications: NotificationRepository;
+  hub: SseHub;
   exporters: Record<ExportFormat, BaseExporter>;
 }
 
@@ -66,6 +68,7 @@ export function buildContainer(p: Ports, cfg: Config) {
     syncRuns: p.syncRuns,
     eventLog: p.eventLog,
     notifications: p.notifications,
+    hub: p.hub,
     tokens: p.tokens,
     revoked: p.revoked,
   };

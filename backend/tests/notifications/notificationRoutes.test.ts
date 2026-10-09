@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import { buildContainer } from '../../src/shared/container';
 import { createApp } from '../../src/shared/http/app';
+import { SseHub } from '../../src/modules/realtime/SseHub';
 import { EventBus } from '../../src/shared/events/EventBus';
 import { InMemoryEventLog } from '../../src/shared/events/InMemoryEventLog';
 import { IcsExporter } from '../../src/modules/schedule/infrastructure/exporters/IcsExporter';
@@ -33,7 +34,7 @@ beforeEach(async () => {
     schedules: new InMemoryScheduleRepo(), enrollments: new InMemoryEnrollmentRepo([]), institutional: new FakeInstitutional(),
     syncRuns: new InMemorySyncRuns(), users: new InMemoryUsers([mkUser(U1, 'a@x.co'), mkUser(U2, 'b@x.co')]),
     revoked: new InMemoryRevoked(), hasher: new FakeHasher(), tokens: new FakeTokens(), audit: new RecordingAudit(),
-    bus: new EventBus({ log: eventLog, sleep: async () => {} }), eventLog, notifications: notes,
+    bus: new EventBus({ log: eventLog, sleep: async () => {} }), eventLog, notifications: notes, hub: new SseHub(),
     exporters: { ics: new IcsExporter({ semesterStart: cfg.semesterStart, weeks: 16 }), pdf: new PdfExporter({ semester: '2026-2' }) },
   }, cfg), cfg);
 });

@@ -21,7 +21,7 @@ export async function flushPendingEmails(deps: FlushDeps): Promise<number> {
   const pending = await notifications.listPendingEmail(new Date(at.getTime() - sinceHours * 3_600_000), 100);
   for (const n of pending) {
     await bus.publish('NotificationCreated', {
-      notificationId: n.id, userId: n.userId, title: n.title, message: n.message, kind: n.kind,
+      notificationId: n.id, userId: n.userId, title: n.title, message: n.message, kind: n.kind, replay: true,
     });
   }
   return pending.length;

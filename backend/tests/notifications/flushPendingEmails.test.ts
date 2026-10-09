@@ -7,13 +7,14 @@ const INSIDE = new Date('2026-10-09T15:00:00Z');
 const OUTSIDE = new Date('2026-10-09T08:00:00Z');
 
 describe('flushPendingEmails', () => {
-  let repo: InMemoryNotifications, bus: EventBus, published: string[];
+  let repo: InMemoryNotifications, bus: EventBus, published: string[], replays: Array<boolean | undefined>;
 
   beforeEach(async () => {
     repo = new InMemoryNotifications();
     bus = new EventBus({ sleep: async () => {} });
     published = [];
-    bus.subscribe('NotificationCreated', (e) => { published.push(e.payload.notificationId); }, { name: 'spy' });
+    replays = [];
+    bus.subscribe('NotificationCreated', (e) => { published.push(e.payload.notificationId); replays.push(e.payload.replay); }, { name: 'spy' });
     for (const t of ['A', 'B']) await repo.create({ userId: 'u1', kind: 'SCHEDULE_ADDED', title: t, message: t });
   });
 
@@ -22,6 +23,7 @@ describe('flushPendingEmails', () => {
     await bus.idle();
     expect(n).toBe(2);
     expect(published).toEqual(repo.rows.map((r) => r.id));
+    expect(replays).toEqual([true, true]);
   });
 
   it('no re-publica las ya enviadas', async () => {

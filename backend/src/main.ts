@@ -17,6 +17,8 @@ import { registerEmailObserver } from './modules/notifications/application/Email
 import { buildEmailAdapter } from './modules/notifications/infrastructure/buildEmailAdapter';
 import { registerNotificationObserver } from './modules/notifications/application/NotificationObserver';
 import { PrismaNotificationRepository } from './modules/notifications/infrastructure/PrismaNotificationRepository';
+import { SseHub } from './modules/realtime/SseHub';
+import { registerRealtimeObserver } from './modules/realtime/RealtimeObserver';
 import { registerAuditObserver } from './modules/audit/auditObserver';
 import { registerSyncStatsObserver } from './modules/schedule/observers/syncStatsObserver';
 import { MockInstitutionalAdapter } from './modules/schedule/infrastructure/MockInstitutionalAdapter';
@@ -38,6 +40,8 @@ export function wire() {
   const users = new PrismaUserRepository();
   const window = { start: config.notifyWindowStart, end: config.notifyWindowEnd, timeZone: config.notifyTimezone };
   registerEmailObserver({ bus, notifications, users, email: buildEmailAdapter(config), window });
+  const hub = new SseHub({ heartbeatMs: config.sseHeartbeatMs });
+  registerRealtimeObserver(bus, hub, { window });
   const container = buildContainer({
     schedules: new PrismaScheduleRepository(),
     enrollments: new PrismaEnrollmentRepository(),
@@ -51,6 +55,7 @@ export function wire() {
     bus,
     eventLog,
     notifications,
+    hub,
     exporters: {
       ics: new IcsExporter({ semesterStart: config.semesterStart, weeks: config.semesterWeeks }),
       pdf: new PdfExporter({ semester: config.semester }),
@@ -69,5 +74,13 @@ if (require.main === module) {
     { notifications: container.notifications, bus: container.bus, window: container.window },
     config.notifyFlushCron,
   );
-  app.listen(config.port, () => console.log(`API en http://localhost:${config.port}/api`));
+  const server = app.listen(config.port, () => console.log(`API en http://localhost:${config.port}/api`));
+  // Cierre ordenado: termina los streams SSE para que el servidor pueda cerrar.
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    process.once(signal, () => {
+      container.hub.closeAll();
+      server.close(() => process.exit(0));
+      server.closeIdleConnections();
+    });
+  }
 }

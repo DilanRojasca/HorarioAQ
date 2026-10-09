@@ -5,6 +5,7 @@ import { Config } from '../config';
 import { Container } from '../container';
 import { authRoutes } from '../../modules/auth/http/authRoutes';
 import { notificationRoutes } from '../../modules/notifications/http/notificationRoutes';
+import { eventsRoutes } from '../../modules/realtime/http/eventsRoutes';
 import { adminRoutes } from '../../modules/schedule/http/adminRoutes';
 import { scheduleRoutes } from '../../modules/schedule/http/scheduleRoutes';
 import { notFound } from '../errors';
@@ -21,6 +22,7 @@ export function createApp(c: Container, cfg: Config) {
   app.use('/api/auth', authRoutes(c));
   app.use('/api/schedule', scheduleRoutes(c));
   app.use('/api/notifications', notificationRoutes(c));
+  app.use('/api/events', eventsRoutes(c));
   app.use('/api/admin', adminRoutes(c));
   app.use((_req, _res, next) => next(notFound('Ruta no encontrada')));
   app.use(errorHandler);

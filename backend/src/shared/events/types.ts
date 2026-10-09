@@ -10,7 +10,11 @@ export interface EventMap {
     changesByType: { ADDED: number; UPDATED: number; CANCELLED: number };
   };
   SyncFailed: { runId: string; trigger: 'MANUAL' | 'CRON'; message: string };
-  NotificationCreated: { notificationId: string; userId: string; title: string; message: string; kind: NotificationKind };
+  NotificationCreated: {
+    notificationId: string; userId: string; title: string; message: string; kind: NotificationKind;
+    /** true cuando es una re-publicación (job de pendientes): solo el correo debe reaccionar. */
+    replay?: boolean;
+  };
 }
 export type EventType = keyof EventMap;
 
