@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { WEEKDAYS } from './grid';
 import { durationLabel, initials } from './time';
 import type { Session } from './types';
@@ -48,9 +49,11 @@ export default function ClassDetail({ session, onClose }: { session: Session; on
     };
   }, []);
 
-  return (
+  // Portal a <body>: el overlay cubre siempre toda la pantalla (incluido el encabezado fijo).
+  // Con blur se ve suave; sin soporte de backdrop-filter cae a un tinte oscuro para mantener el contraste.
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-inverse-surface/60 sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-on-surface/60 sm:items-center sm:p-4 supports-[backdrop-filter]:bg-on-surface/15 supports-[backdrop-filter]:backdrop-blur-md"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       data-testid="detail-overlay"
     >
@@ -157,6 +160,7 @@ export default function ClassDetail({ session, onClose }: { session: Session; on
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
