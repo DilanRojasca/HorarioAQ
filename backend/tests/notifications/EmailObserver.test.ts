@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EventBus } from '../../src/shared/events/EventBus';
 import { InMemoryEventLog } from '../../src/shared/events/InMemoryEventLog';
 import { registerEmailObserver } from '../../src/modules/notifications/application/EmailObserver';
@@ -70,6 +70,42 @@ describe('registerEmailObserver', () => {
     expect(report.deliveries[0].status).toBe('OK');
     expect(email.sent).toHaveLength(0);
     expect(repo.rows[0].emailedAt).toBeNull();
+    expect(repo.rows[0].emailSkippedAt).toEqual(INSIDE); // terminal: el job de pendientes ya no la recoge
+    expect(await repo.listPendingEmail(new Date(0), 10)).toHaveLength(0);
+  });
+
+  it('dos entregas concurrentes de la misma notificación envían exactamente un correo', async () => {
+    await Promise.all([publish(), publish()]);
+    expect(email.sent).toHaveLength(1);
+    expect(email.attempts).toBe(1);
+  });
+
+  it('si send falla libera el reclamo y suma un intento por fallo; un reintento posterior envía una sola vez', async () => {
+    email.failWith = new Error('SMTP caído');
+    await publish();
+    expect(repo.rows[0]).toMatchObject({ emailedAt: null, emailAttempts: 4 });
+    email.failWith = undefined;
+    await Promise.all([publish(), publish()]);
+    expect(email.sent).toHaveLength(1);
+    expect(repo.rows[0].emailedAt).toEqual(INSIDE);
+  });
+
+  it('si liberar el reclamo falla se prefiere no duplicar: queda reclamada, se registra y el reintento no reenvía', async () => {
+    email.failWith = new Error('SMTP caído');
+    repo.releaseEmail = async () => { throw new Error('bd caída'); };
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const report = await publish();
+    expect(report.deliveries[0]).toMatchObject({ status: 'OK', attempts: 2 }); // 1.er intento falla; el 2.º ve el reclamo y no envía
+    expect(email.attempts).toBe(1);
+    expect(repo.rows[0].emailedAt).toEqual(INSIDE);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('una notificación ya omitida no se vuelve a evaluar', async () => {
+    repo.rows[0].emailSkippedAt = INSIDE;
+    await publish();
+    expect(email.sent).toHaveLength(0);
   });
 
   it('notificación inexistente: no envía y no falla', async () => {
@@ -102,7 +138,7 @@ describe('registerEmailObserver', () => {
     registerNotificationObserver(b, r);
     registerEmailObserver({ bus: b, notifications: r, users, email: new ConsoleEmailAdapter((l) => lines.push(l)), now: () => now });
     const s = session({ externalId: 'u1-X', courseName: 'Cálculo' });
-    await b.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes: [{ type: 'ADDED', externalId: 'u1-X', userId: 'u1', after: s }] });
+    await b.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes: [{ type: 'ADDED', externalId: 'u1-X', userId: 'u1', after: s }], initialLoad: false });
     await b.idle();
     expect(lines).toEqual(['[email:console] para=ana@horariouni.test asunto=Nueva clase: Cálculo']);
     expect(r.rows[0].emailedAt).toEqual(INSIDE);

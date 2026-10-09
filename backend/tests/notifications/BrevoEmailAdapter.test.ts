@@ -60,6 +60,29 @@ describe('BrevoEmailAdapter', () => {
     await expect(adapter(fetchFn as unknown as typeof fetch).send(msg)).rejects.toThrow('Brevo respondió 502');
   });
 
+  it('redacta la clave si Brevo la devuelve en su mensaje', async () => {
+    const fetchFn = vi.fn(async () => new Response(JSON.stringify({ message: `clave ${KEY} inválida (${KEY})` }), { status: 401 }));
+    const err = await adapter(fetchFn as unknown as typeof fetch).send(msg).catch((e) => e);
+    expect(String(err)).toBe('Error: Brevo respondió 401: clave *** inválida (***)');
+    expect(String(err)).not.toContain(KEY);
+  });
+
+  it('pasa una señal de timeout (10 s por defecto) a fetch', async () => {
+    const fetchFn = vi.fn(async () => okResponse());
+    await adapter(fetchFn as unknown as typeof fetch).send(msg);
+    const init = (fetchFn.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(init.signal!.aborted).toBe(false);
+  });
+
+  it('si fetch no responde, el timeout aborta y se lanza el mismo mensaje constante de red', async () => {
+    const hanging = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_ok, fail) => {
+      init.signal!.addEventListener('abort', () => fail(init.signal!.reason));
+    }));
+    const a = new BrevoEmailAdapter({ apiKey: KEY, from, fetchFn: hanging as unknown as typeof fetch, timeoutMs: 20 });
+    await expect(a.send(msg)).rejects.toThrow(new Error('No se pudo contactar con Brevo'));
+  });
+
   it('un fallo de red no incluye la clave en el error', async () => {
     const fetchFn = vi.fn(async () => { throw new Error(`conexión rechazada con ${KEY}`); });
     const err = await adapter(fetchFn as unknown as typeof fetch).send(msg).catch((e) => e);

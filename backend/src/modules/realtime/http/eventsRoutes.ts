@@ -11,6 +11,7 @@ export function eventsRoutes(c: Container) {
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     });
+    if (res.destroyed || res.writableEnded) return; // el cliente se fue durante la autenticación
     res.flushHeaders();
     c.hub.connect(req.auth!.sub, res);
   });

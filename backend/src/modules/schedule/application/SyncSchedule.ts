@@ -55,7 +55,7 @@ export class SyncScheduleUseCase implements UseCase<SyncInput, SyncResult> {
           if (changes.length === 0) return 0;
           await schedules.applyChanges(userId, semester, changes);
           for (const c of changes) changesByType[c.type]++;
-          void bus.publish('ScheduleChanged', { userId, semester, changes }); // nunca rechaza
+          void bus.publish('ScheduleChanged', { userId, semester, changes, initialLoad: local.length === 0 }); // nunca rechaza
           return changes.length;
         }),
       );

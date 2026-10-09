@@ -1,6 +1,6 @@
 import { prisma } from '../../../shared/prisma';
 import { NotificationKind } from '../../../shared/events/types';
-import { NotificationRecord, NotificationRepository } from '../application/ports';
+import { MAX_EMAIL_ATTEMPTS, NotificationRecord, NotificationRepository } from '../application/ports';
 
 type Row = Omit<NotificationRecord, 'kind'> & { kind: string };
 const toRecord = (r: Row): NotificationRecord => ({ ...r, kind: r.kind as NotificationKind });
@@ -40,13 +40,29 @@ export class PrismaNotificationRepository implements NotificationRepository {
     return r ? toRecord(r) : null;
   }
 
-  async markEmailed(id: string, at: Date) {
-    await prisma.notification.update({ where: { id }, data: { emailedAt: at } });
+  async claimEmail(id: string, at: Date) {
+    const r = await prisma.notification.updateMany({
+      where: { id, emailedAt: null, emailSkippedAt: null },
+      data: { emailedAt: at },
+    });
+    return r.count === 1;
+  }
+
+  async releaseEmail(id: string) {
+    await prisma.notification.updateMany({ where: { id }, data: { emailedAt: null } });
+  }
+
+  async recordEmailFailure(id: string) {
+    await prisma.notification.updateMany({ where: { id }, data: { emailAttempts: { increment: 1 } } });
+  }
+
+  async markEmailSkipped(id: string, at: Date) {
+    await prisma.notification.updateMany({ where: { id }, data: { emailSkippedAt: at } });
   }
 
   async listPendingEmail(since: Date, limit: number) {
     const rows = await prisma.notification.findMany({
-      where: { emailedAt: null, createdAt: { gte: since } },
+      where: { emailedAt: null, emailSkippedAt: null, emailAttempts: { lt: MAX_EMAIL_ATTEMPTS }, createdAt: { gte: since } },
       orderBy: { createdAt: 'asc' },
       take: limit,
     });

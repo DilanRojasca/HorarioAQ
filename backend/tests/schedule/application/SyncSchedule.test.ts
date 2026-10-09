@@ -34,6 +34,15 @@ describe('SyncScheduleUseCase', () => {
     expect(runs.runs[0]).toMatchObject({ status: 'OK', changesCount: 1, trigger: 'MANUAL' });
   });
 
+  it('initialLoad: true cuando el horario local estaba vacío y false en las sincronizaciones siguientes', async () => {
+    inst.data.set('u1', [session()]);
+    await uc.execute({ trigger: 'MANUAL' });
+    inst.data.set('u1', [session({ room: '305' })]);
+    await uc.execute({ trigger: 'MANUAL' });
+    await bus.idle();
+    expect(events.map((e) => e.payload.initialLoad)).toEqual([true, false]);
+  });
+
   it('solo sincroniza estudiantes con matrícula vigente (RRF-01)', async () => {
     enroll.active = ['u1'];
     inst.data.set('u2', [session({ userId: 'u2', externalId: 'u2-ALG-1' })]);

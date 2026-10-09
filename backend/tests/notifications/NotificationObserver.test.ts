@@ -24,7 +24,7 @@ describe('registerNotificationObserver', () => {
   });
 
   it('crea una notificación por cambio, en orden, y publica NotificationCreated por cada una', async () => {
-    await bus.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes: [added(1), added(2)] });
+    await bus.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes: [added(1), added(2)], initialLoad: false });
     await bus.idle();
     expect(repo.rows.map((r) => r.title)).toEqual(['Nueva clase: Curso 1', 'Nueva clase: Curso 2']);
     expect(repo.rows.every((r) => r.userId === 'u1' && r.readAt === null && r.emailedAt === null)).toBe(true);
@@ -43,10 +43,31 @@ describe('registerNotificationObserver', () => {
       finished = true;
     }, { name: 'slow' });
     // No se espera el report de publish: solo idle().
-    void bus.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes: [added(1)] });
+    void bus.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes: [added(1)], initialLoad: false });
     await bus.idle();
     expect(finished).toBe(true);
     expect(log.events.map((e) => e.type)).toContain('NotificationCreated');
+  });
+
+  it('la carga inicial (initialLoad) es silenciosa: no crea notificaciones ni publica NotificationCreated', async () => {
+    const report = await bus.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes: [added(1), added(2)], initialLoad: true });
+    await bus.idle();
+    expect(report.deliveries).toEqual([{ observer: 'notifications', status: 'OK', attempts: 1 }]);
+    expect(repo.rows).toHaveLength(0);
+    expect(created).toHaveLength(0);
+  });
+
+  it('la publicación anidada es dispara-y-olvida: un observador lento de NotificationCreated no retrasa el reporte', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let finished = false;
+    bus.subscribe('NotificationCreated', async () => { await gate; finished = true; }, { name: 'slow' });
+    const report = await bus.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes: [added(1)], initialLoad: false });
+    expect(report.deliveries[0]).toMatchObject({ observer: 'notifications', status: 'OK' });
+    expect(finished).toBe(false); // el reporte llegó con la entrega anidada aún en vuelo
+    release();
+    await bus.idle();
+    expect(finished).toBe(true);
   });
 
   it('si el repositorio falla, el bus lo registra FAILED tras reintentos sin lanzar, y no duplica las ya creadas', async () => {
@@ -57,7 +78,7 @@ describe('registerNotificationObserver', () => {
       if (n.title.endsWith('2')) throw new Error('bd caída');
       return orig(n);
     };
-    const report = await bus.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes: [added(1), added(2), added(3)] });
+    const report = await bus.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes: [added(1), added(2), added(3)], initialLoad: false });
     await bus.idle();
     expect(report.deliveries).toEqual([{ observer: 'notifications', status: 'FAILED', attempts: 3, error: 'bd caída' }]);
     expect(repo.rows.map((r) => r.title)).toEqual(['Nueva clase: Curso 1', 'Nueva clase: Curso 3']);

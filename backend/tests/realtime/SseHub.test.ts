@@ -5,6 +5,8 @@ class FakeRes implements SseWritable {
   chunks: string[] = [];
   ended = false;
   failWrites = false;
+  destroyed = false;
+  writableEnded = false;
   private closeCb: (() => void) | undefined;
   write(chunk: string) {
     if (this.failWrites) throw new Error('EPIPE');
@@ -106,6 +108,16 @@ describe('SseHub', () => {
     bad.failWrites = true;
     hub.connect('u', bad);
     expect(hub.connectionCount()).toBe(0);
+  });
+
+  it.each(['destroyed', 'writableEnded'] as const)('una respuesta con %s no se registra ni arranca el latido', (flag) => {
+    const gone = new FakeRes();
+    gone[flag] = true;
+    const off = hub.connect('u', gone);
+    expect(gone.text).toBe('');
+    expect(hub.connectionCount()).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(() => off()).not.toThrow();
   });
 
   it('closeAll termina todas las conexiones', () => {

@@ -3,6 +3,9 @@ export interface SseWritable {
   write(chunk: string): boolean;
   end(): void;
   on(event: 'close', cb: () => void): unknown;
+  /** Presentes en `http.ServerResponse`: el cliente ya cerró o la respuesta ya terminó. */
+  destroyed?: boolean;
+  writableEnded?: boolean;
 }
 
 /**
@@ -20,8 +23,13 @@ export class SseHub {
     this.heartbeatMs = opts.heartbeatMs ?? 25_000;
   }
 
-  /** Registra la conexión, escribe el preámbulo y devuelve la función de desconexión. */
+  /**
+   * Registra la conexión, escribe el preámbulo y devuelve la función de desconexión.
+   * Una respuesta ya destruida o terminada (el cliente se fue mientras se autenticaba) no se registra:
+   * su evento `close` ya pasó y la conexión quedaría huérfana, con el latido activo.
+   */
   connect(userId: string, res: SseWritable): () => void {
+    if (res.destroyed || res.writableEnded) return () => {};
     if (!this.safeWrite(res, 'retry: 3000\n\nevent: ready\ndata: {}\n\n')) return () => {};
     const set = this.conns.get(userId) ?? new Set<SseWritable>();
     this.conns.set(userId, set);

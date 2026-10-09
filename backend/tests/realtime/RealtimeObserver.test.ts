@@ -33,7 +33,7 @@ describe('registerRealtimeObserver', () => {
 
   it('schedule-changed se envía siempre, incluso a las 03:00 Bogotá', async () => {
     now = NIGHT;
-    await bus.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes: [change(), change()] });
+    await bus.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes: [change(), change()], initialLoad: false });
     await bus.idle();
     expect(out.events()).toEqual(['event: schedule-changed\ndata: {"semester":"2026-2","count":2}']);
   });
@@ -61,7 +61,7 @@ describe('registerRealtimeObserver', () => {
 
   it('sin conexiones del usuario no falla', async () => {
     await bus.publish('NotificationCreated', { ...note, userId: 'otro' });
-    const report = await bus.publish('ScheduleChanged', { userId: 'otro', semester: 's', changes: [] });
+    const report = await bus.publish('ScheduleChanged', { userId: 'otro', semester: 's', changes: [], initialLoad: false });
     await bus.idle();
     expect(report.deliveries.every((d) => d.status === 'OK')).toBe(true);
   });

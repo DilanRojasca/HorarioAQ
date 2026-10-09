@@ -4,7 +4,11 @@ export type NotificationKind = 'SCHEDULE_ADDED' | 'SCHEDULE_UPDATED' | 'SCHEDULE
 
 /** Catálogo de eventos del dominio: tipo → forma del payload. */
 export interface EventMap {
-  ScheduleChanged: { userId: string; semester: string; changes: ScheduleChange[] };
+  ScheduleChanged: {
+    userId: string; semester: string; changes: ScheduleChange[];
+    /** true cuando el horario local del estudiante estaba vacío (carga inicial): no genera notificaciones. */
+    initialLoad: boolean;
+  };
   SyncCompleted: {
     runId: string; trigger: 'MANUAL' | 'CRON'; studentsSynced: number; changesCount: number; failures: number;
     changesByType: { ADDED: number; UPDATED: number; CANCELLED: number };

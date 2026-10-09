@@ -127,7 +127,12 @@ model Notification {
   createdAt DateTime  @default(now())
   readAt    DateTime?
   emailedAt DateTime?
+  /// Terminal: el correo no aplica (usuario inexistente o inactivo); nunca se vuelve a intentar.
+  emailSkippedAt DateTime?
+  /// Envíos fallidos; al llegar al tope el job de pendientes deja de reintentar.
+  emailAttempts  Int       @default(0)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([emailedAt, createdAt])
 }

@@ -6,7 +6,7 @@ import {
 import {
   PasswordHasher, RevokedTokenRepository, TokenPayload, TokenService, User, UserRepository,
 } from '../../src/modules/auth/application/ports';
-import { EmailPort, NotificationRecord, NotificationRepository } from '../../src/modules/notifications/application/ports';
+import { EmailPort, MAX_EMAIL_ATTEMPTS, NotificationRecord, NotificationRepository } from '../../src/modules/notifications/application/ports';
 import { NotificationKind } from '../../src/shared/events/types';
 import { AuditEntry, AuditPort } from '../../src/shared/ports';
 import { unauthorized } from '../../src/shared/errors';
@@ -106,7 +106,7 @@ export class InMemoryNotifications implements NotificationRepository {
   private n = 0;
   async create(n: { userId: string; kind: NotificationKind; title: string; message: string }) {
     const rec: NotificationRecord = {
-      id: randomUUID(), ...n, createdAt: new Date(Date.now() + ++this.n), readAt: null, emailedAt: null,
+      id: randomUUID(), ...n, createdAt: new Date(Date.now() + ++this.n), readAt: null, emailedAt: null, emailSkippedAt: null, emailAttempts: 0,
     };
     this.rows.push(rec);
     return rec;
@@ -130,13 +130,27 @@ export class InMemoryNotifications implements NotificationRepository {
     return unread.length;
   }
   async findById(id: string) { return this.rows.find((r) => r.id === id) ?? null; }
-  async markEmailed(id: string, at: Date) {
+  async claimEmail(id: string, at: Date) {
     const r = this.rows.find((x) => x.id === id);
-    if (r) r.emailedAt = at;
+    if (!r || r.emailedAt !== null || r.emailSkippedAt !== null) return false;
+    r.emailedAt = at;
+    return true;
+  }
+  async releaseEmail(id: string) {
+    const r = this.rows.find((x) => x.id === id);
+    if (r) r.emailedAt = null;
+  }
+  async recordEmailFailure(id: string) {
+    const r = this.rows.find((x) => x.id === id);
+    if (r) r.emailAttempts++;
+  }
+  async markEmailSkipped(id: string, at: Date) {
+    const r = this.rows.find((x) => x.id === id);
+    if (r) r.emailSkippedAt = at;
   }
   async listPendingEmail(since: Date, limit: number) {
     return this.rows
-      .filter((r) => r.emailedAt === null && r.createdAt >= since)
+      .filter((r) => r.emailedAt === null && r.emailSkippedAt === null && r.emailAttempts < MAX_EMAIL_ATTEMPTS && r.createdAt >= since)
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .slice(0, limit);
   }

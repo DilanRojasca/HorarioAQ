@@ -10,7 +10,7 @@ describe('auditObserver', () => {
     const audit = new RecordingAudit();
     registerAuditObserver(bus, audit);
     const changes = [{ type: 'UPDATED', externalId: 'e1', userId: 'u1' }] as ScheduleChange[];
-    await bus.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes });
+    await bus.publish('ScheduleChanged', { userId: 'u1', semester: '2026-2', changes, initialLoad: false });
     expect(audit.entries[0]).toMatchObject({
       action: 'SCHEDULE_CHANGED', entity: 'schedule', actorId: 'system',
       detail: { userId: 'u1', semester: '2026-2', changes: [{ type: 'UPDATED', externalId: 'e1' }] },
