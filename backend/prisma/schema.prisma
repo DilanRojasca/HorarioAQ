@@ -92,3 +92,26 @@ model RevokedToken {
   jti       String   @id
   expiresAt DateTime
 }
+
+model DomainEvent {
+  id         String          @id @default(uuid()) @db.Uuid
+  type       String
+  payload    Json
+  occurredAt DateTime        @default(now())
+  deliveries EventDelivery[]
+
+  @@index([occurredAt])
+}
+
+model EventDelivery {
+  id          String      @id @default(uuid()) @db.Uuid
+  eventId     String      @db.Uuid
+  observer    String
+  status      String
+  attempts    Int
+  error       String?
+  deliveredAt DateTime    @default(now())
+  event       DomainEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+}

@@ -2,7 +2,8 @@ import 'dotenv/config';
 import { config } from './shared/config';
 import { assertSafeConfig } from './shared/safeConfig';
 import { buildContainer } from './shared/container';
-import { InMemoryEventBus } from './shared/eventBus';
+import { EventBus } from './shared/events/EventBus';
+import { PrismaEventLog } from './shared/events/PrismaEventLog';
 import { createApp } from './shared/http/app';
 import { startSyncJob } from './jobs/syncJob';
 import { Argon2Hasher } from './modules/auth/infrastructure/Argon2Hasher';
@@ -10,7 +11,7 @@ import { JwtTokenService } from './modules/auth/infrastructure/JwtTokenService';
 import { PrismaRevokedTokenRepository } from './modules/auth/infrastructure/PrismaRevokedTokenRepository';
 import { PrismaUserRepository } from './modules/auth/infrastructure/PrismaUserRepository';
 import { PrismaAuditLog } from './modules/audit/PrismaAuditLog';
-import { registerAuditListener } from './modules/audit/auditListener';
+import { registerAuditObserver } from './modules/audit/auditObserver';
 import { MockInstitutionalAdapter } from './modules/schedule/infrastructure/MockInstitutionalAdapter';
 import { PrismaEnrollmentRepository } from './modules/schedule/infrastructure/PrismaEnrollmentRepository';
 import { PrismaScheduleRepository } from './modules/schedule/infrastructure/PrismaScheduleRepository';
@@ -19,9 +20,9 @@ import { IcsExporter } from './modules/schedule/infrastructure/exporters/IcsExpo
 import { PdfExporter } from './modules/schedule/infrastructure/exporters/PdfExporter';
 
 export function wire() {
-  const bus = new InMemoryEventBus();
+  const bus = new EventBus({ log: new PrismaEventLog() });
   const audit = new PrismaAuditLog();
-  registerAuditListener(bus, audit);
+  registerAuditObserver(bus, audit);
   const syncRuns = new PrismaSyncRunRepository();
   const container = buildContainer({
     schedules: new PrismaScheduleRepository(),

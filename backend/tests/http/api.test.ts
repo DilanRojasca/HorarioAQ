@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import { buildContainer } from '../../src/shared/container';
 import { createApp } from '../../src/shared/http/app';
-import { InMemoryEventBus } from '../../src/shared/eventBus';
+import { EventBus } from '../../src/shared/events/EventBus';
 import { IcsExporter } from '../../src/modules/schedule/infrastructure/exporters/IcsExporter';
 import { PdfExporter } from '../../src/modules/schedule/infrastructure/exporters/PdfExporter';
-import { registerAuditListener } from '../../src/modules/audit/auditListener';
+import { registerAuditObserver } from '../../src/modules/audit/auditObserver';
 import {
   FakeHasher, FakeInstitutional, FakeTokens, InMemoryEnrollmentRepo, InMemoryRevoked,
   InMemoryScheduleRepo, InMemorySyncRuns, InMemoryUsers, RecordingAudit, session,
@@ -26,8 +26,8 @@ beforeEach(() => {
   audit = new RecordingAudit();
   inst = new FakeInstitutional();
   schedules = new InMemoryScheduleRepo();
-  const bus = new InMemoryEventBus();
-  registerAuditListener(bus, audit);
+  const bus = new EventBus({ sleep: async () => {} });
+  registerAuditObserver(bus, audit);
   const mkUser = (id: string, role: 'STUDENT' | 'ADMIN', email = `${id}@x.co`) =>
     ({ id, name: `User ${id}`, email, passwordHash: 'hash:Secreta123!', role, active: true });
   const c = buildContainer({

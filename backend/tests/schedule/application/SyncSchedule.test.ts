@@ -1,21 +1,21 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SyncScheduleUseCase } from '../../../src/modules/schedule/application/SyncSchedule';
-import { InMemoryEventBus } from '../../../src/shared/eventBus';
+import { EventBus } from '../../../src/shared/events/EventBus';
 import {
   FakeInstitutional, InMemoryEnrollmentRepo, InMemoryScheduleRepo, InMemorySyncRuns, session,
 } from '../../helpers/inMemory';
 
 describe('SyncScheduleUseCase', () => {
   let schedules: InMemoryScheduleRepo, inst: FakeInstitutional, runs: InMemorySyncRuns;
-  let bus: InMemoryEventBus, events: any[], uc: SyncScheduleUseCase, enroll: InMemoryEnrollmentRepo;
+  let bus: EventBus, events: any[], uc: SyncScheduleUseCase, enroll: InMemoryEnrollmentRepo;
 
   beforeEach(() => {
     schedules = new InMemoryScheduleRepo();
     inst = new FakeInstitutional();
     runs = new InMemorySyncRuns();
-    bus = new InMemoryEventBus();
+    bus = new EventBus({ sleep: async () => {} });
     events = [];
-    bus.subscribe('ScheduleChanged', (e) => { events.push(e); });
+    bus.subscribe('ScheduleChanged', (e) => { events.push(e); }, { name: 'test' });
     enroll = new InMemoryEnrollmentRepo(['u1', 'u2']);
     uc = new SyncScheduleUseCase(
       { schedules, enrollments: enroll, institutional: inst, syncRuns: runs, bus },
@@ -26,11 +26,11 @@ describe('SyncScheduleUseCase', () => {
   it('importa horario nuevo y emite ScheduleChanged', async () => {
     inst.data.set('u1', [session()]);
     const r = await uc.execute({ trigger: 'MANUAL', actorId: 'admin' });
-    await new Promise((x) => setTimeout(x, 0));
+    await bus.idle();
     expect(r).toMatchObject({ studentsSynced: 2, changesCount: 1 });
     expect(schedules.rows).toHaveLength(1);
     expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ userId: 'u1', semester: '2026-2' });
+    expect(events[0].payload).toMatchObject({ userId: 'u1', semester: '2026-2' });
     expect(runs.runs[0]).toMatchObject({ status: 'OK', changesCount: 1, trigger: 'MANUAL' });
   });
 
@@ -78,7 +78,7 @@ describe('SyncScheduleUseCase', () => {
     const gate = new Promise<void>((r) => { release = r; });
     inst.fetchSchedule = async () => { await gate; return []; };
     const first = uc.execute({ trigger: 'MANUAL' });
-    await new Promise((x) => setTimeout(x, 0));
+    await bus.idle();
     await expect(uc.execute({ trigger: 'CRON' })).rejects.toMatchObject({ status: 409, code: 'SYNC_IN_PROGRESS' });
     release();
     await first;

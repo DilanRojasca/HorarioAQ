@@ -1,5 +1,6 @@
 import { AppError } from '../../../shared/errors';
-import { EventBus, UseCase } from '../../../shared/ports';
+import { EventBus } from '../../../shared/events/EventBus';
+import { UseCase } from '../../../shared/ports';
 import { diffSchedules } from '../domain/diff';
 import { EnrollmentRepository, InstitutionalPort, ScheduleRepository, SyncRunRepository } from './ports';
 
@@ -51,7 +52,7 @@ export class SyncScheduleUseCase implements UseCase<SyncInput, SyncResult> {
           const changes = diffSchedules(local, remote);
           if (changes.length === 0) return 0;
           await schedules.applyChanges(userId, semester, changes);
-          bus.publish({ type: 'ScheduleChanged', userId, semester, changes });
+          void bus.publish('ScheduleChanged', { userId, semester, changes }); // nunca rechaza
           return changes.length;
         }),
       );

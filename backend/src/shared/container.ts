@@ -1,6 +1,7 @@
 import { withAudit } from './audit';
 import { Config } from './config';
-import { AuditPort, EventBus } from './ports';
+import { EventBus } from './events/EventBus';
+import { AuditPort } from './ports';
 import { LoginUseCase } from '../modules/auth/application/Login';
 import { LogoutUseCase } from '../modules/auth/application/Logout';
 import { PasswordHasher, RevokedTokenRepository, TokenService, UserRepository } from '../modules/auth/application/ports';
