@@ -71,15 +71,16 @@ export default function AdminPage() {
           {busy ? 'Sincronizando…' : 'Sincronizar ahora'}
         </button>
 
+        <div role="status" aria-live="polite" className="space-y-2 empty:hidden">
         {busy && (
-          <div role="status" className="flex items-center gap-2.5 rounded-[10px] border border-outline-variant/60 bg-surface-container p-3 text-body-md text-on-surface-variant">
+          <div className="flex items-center gap-2.5 rounded-[10px] border border-outline-variant/60 bg-surface-container p-3 text-body-md text-on-surface-variant">
             <span className="h-2.5 w-2.5 rounded-full bg-secondary-container motion-safe:animate-pulse" aria-hidden="true" />
             Sincronizando… (consultando registros académicos)
           </div>
         )}
 
         {result && (
-          <div role="status" className="space-y-2">
+          <div className="space-y-2">
             <div className="flex gap-2.5 rounded-[10px] border border-outline-variant/60 border-l-4 border-l-[#1E7E34] bg-surface-container-low p-3">
               <span className="material-symbols-outlined text-[#1E7E34]" aria-hidden="true">check_circle</span>
               <div>
@@ -101,11 +102,13 @@ export default function AdminPage() {
         )}
 
         {notice && (
-          <div role="status" className="flex gap-2.5 rounded-[10px] border border-[#FEEFC3] border-l-4 border-l-secondary-container bg-[#FEF7E0] p-3 text-on-secondary-container">
+          <div className="flex gap-2.5 rounded-[10px] border border-[#FEEFC3] border-l-4 border-l-secondary-container bg-[#FEF7E0] p-3 text-on-secondary-container">
             <span className="material-symbols-outlined" aria-hidden="true">hourglass_top</span>
             <p className="m-0 text-body-md font-medium">{notice}</p>
           </div>
         )}
+
+        </div>
 
         {error && (
           <div role="alert" className="flex gap-2.5 rounded-[10px] border border-error/30 bg-error-container/40 p-3 text-error">

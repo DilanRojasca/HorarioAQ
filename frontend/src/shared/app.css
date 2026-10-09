@@ -1,3 +1,12 @@
+/* Fuente de iconos reducida (ver scripts/subset-icons.sh); swap evita iconos invisibles al cargar. */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/material-symbols-subset.woff2') format('woff2');
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,6 +19,15 @@
     @apply outline-none ring-2 ring-primary ring-offset-2;
   }
   .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
+    font-feature-settings: 'liga';
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
     display: inline-block;
     vertical-align: middle;
     line-height: 1;

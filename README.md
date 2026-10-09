@@ -39,6 +39,8 @@ Stack: React 18 + Vite (frontend), Node 20 + Express + Prisma + PostgreSQL (back
 
    Si el puerto 5173 está ocupado, Vite elegirá otro; entonces ajuste `CORS_ORIGIN` en `backend/.env`.
 
+   Íconos: la app usa una fuente Material Symbols reducida (`frontend/src/assets/fonts/material-symbols-subset.woff2`, ~6 KB). Al usar un ícono nuevo, añada su nombre a `frontend/src/assets/fonts/icons.txt` y ejecute `npm run icons` (requiere python3; regenera la fuente). Un test (`icons.test.ts`) falla si un ícono usado no está en la lista.
+
 ### Variables de entorno (`backend/.env`)
 
 | Variable | Descripción | Por defecto |

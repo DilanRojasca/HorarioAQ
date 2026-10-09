@@ -77,6 +77,19 @@ describe('AdminPage', () => {
     expect(screen.getByRole('button', { name: 'Sincronizar ahora' })).toBeEnabled();
   });
 
+  it('mantiene una región role=status montada antes de sincronizar y le cambia el contenido', async () => {
+    get.mockResolvedValue(runs);
+    post.mockResolvedValue({ runId: 'r', studentsSynced: 1, changesCount: 0 });
+    const user = userEvent.setup();
+    render(<AdminPage />);
+    await screen.findByText('Manual');
+    const region = screen.getAllByRole('status').find((el) => el.getAttribute('aria-live') === 'polite')!;
+    expect(region).toBeEmptyDOMElement();
+    await user.click(screen.getByRole('button', { name: 'Sincronizar ahora' }));
+    await screen.findByText('Sincronización completada');
+    expect(region).toHaveTextContent('Sincronización completada');
+  });
+
   it('muestra otros errores en role=alert', async () => {
     get.mockResolvedValue(runs);
     post.mockRejectedValue(new ApiError(500, 'Fallo del servidor'));

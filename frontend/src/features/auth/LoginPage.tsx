@@ -5,7 +5,7 @@ import { ApiError } from '../../shared/api';
 import { useAuth } from './AuthContext';
 
 const fieldInput =
-  'block w-full min-h-[44px] rounded-[10px] border border-outline-variant bg-surface-container-lowest pl-10 pr-3 text-body-md text-on-surface placeholder:text-outline focus:border-primary-container focus:ring-2 focus:ring-primary-container/20';
+  'block w-full min-h-[44px] rounded-[10px] border border-outline-variant bg-surface-container-lowest pl-10 pr-3 text-body-md text-on-surface placeholder:text-outline focus:border-primary-container focus-visible:ring-2 focus-visible:ring-primary';
 
 export default function LoginPage() {
   const { user, login } = useAuth();
