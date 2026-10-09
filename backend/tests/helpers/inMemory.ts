@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { ClassSession, ScheduleChange } from '../../src/modules/schedule/domain/types';
 import {
   EnrollmentRepository, InstitutionalPort, ScheduleRepository, SyncRunRecord, SyncRunRepository,
@@ -5,6 +6,8 @@ import {
 import {
   PasswordHasher, RevokedTokenRepository, TokenPayload, TokenService, User, UserRepository,
 } from '../../src/modules/auth/application/ports';
+import { EmailPort, MAX_EMAIL_ATTEMPTS, NotificationRecord, NotificationRepository } from '../../src/modules/notifications/application/ports';
+import { NotificationKind } from '../../src/shared/events/types';
 import { AuditEntry, AuditPort } from '../../src/shared/ports';
 import { unauthorized } from '../../src/shared/errors';
 
@@ -51,13 +54,16 @@ export class InMemorySyncRuns implements SyncRunRepository {
     if (this.runs.some((r) => r.status === 'RUNNING' && r.startedAt.getTime() > cutoff)) return null;
     const rec: SyncRunRecord = {
       id: `run${this.runs.length + 1}`, trigger, actorId: actorId ?? null,
-      startedAt: new Date(), finishedAt: null, studentsSynced: 0, changesCount: 0, status: 'RUNNING',
+      startedAt: new Date(), finishedAt: null, studentsSynced: 0, changesCount: 0, status: 'RUNNING', stats: null,
     };
     this.runs.push(rec);
     return { id: rec.id };
   }
   async finish(id: string, r: { status: 'OK' | 'FAILED' | 'PARTIAL'; studentsSynced: number; changesCount: number }) {
     Object.assign(this.runs.find((x) => x.id === id)!, r, { finishedAt: new Date() });
+  }
+  async saveStats(id: string, stats: { added: number; updated: number; cancelled: number }) {
+    this.runs.find((x) => x.id === id)!.stats = stats;
   }
   async list(limit: number) { return this.runs.slice(-limit).reverse(); }
 }
@@ -93,4 +99,74 @@ export class FakeTokens implements TokenService {
 export class RecordingAudit implements AuditPort {
   entries: AuditEntry[] = [];
   async record(e: AuditEntry) { this.entries.push(e); }
+}
+
+export class InMemoryNotifications implements NotificationRepository {
+  rows: NotificationRecord[] = [];
+  private n = 0;
+  async create(n: { userId: string; kind: NotificationKind; title: string; message: string }) {
+    const rec: NotificationRecord = {
+      id: randomUUID(), ...n, createdAt: new Date(Date.now() + ++this.n), readAt: null, emailedAt: null, emailSkippedAt: null, emailAttempts: 0,
+    };
+    this.rows.push(rec);
+    return rec;
+  }
+  async listByUser(userId: string, opts: { unreadOnly?: boolean; limit: number }) {
+    return this.rows
+      .filter((r) => r.userId === userId && (!opts.unreadOnly || r.readAt === null))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, opts.limit);
+  }
+  async countUnread(userId: string) { return this.rows.filter((r) => r.userId === userId && r.readAt === null).length; }
+  async markRead(userId: string, id: string) {
+    const r = this.rows.find((x) => x.id === id && x.userId === userId);
+    if (!r) return false;
+    r.readAt ??= new Date();
+    return true;
+  }
+  async markAllRead(userId: string) {
+    const unread = this.rows.filter((r) => r.userId === userId && r.readAt === null);
+    unread.forEach((r) => { r.readAt = new Date(); });
+    return unread.length;
+  }
+  async findById(id: string) { return this.rows.find((r) => r.id === id) ?? null; }
+  async claimEmail(id: string, at: Date) {
+    const r = this.rows.find((x) => x.id === id);
+    if (!r || r.emailedAt !== null || r.emailSkippedAt !== null) return false;
+    r.emailedAt = at;
+    return true;
+  }
+  async releaseEmail(id: string) {
+    const r = this.rows.find((x) => x.id === id);
+    if (r) r.emailedAt = null;
+  }
+  async recordEmailFailure(id: string) {
+    const r = this.rows.find((x) => x.id === id);
+    if (r) r.emailAttempts++;
+  }
+  async markEmailSkipped(id: string, at: Date) {
+    const r = this.rows.find((x) => x.id === id);
+    if (r) r.emailSkippedAt = at;
+  }
+  async listPendingEmail(since: Date, limit: number) {
+    return this.rows
+      .filter((r) => r.emailedAt === null && r.emailSkippedAt === null && r.emailAttempts < MAX_EMAIL_ATTEMPTS && r.createdAt >= since)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .slice(0, limit);
+  }
+}
+
+export class RecordingEmail implements EmailPort {
+  sent: Array<{ to: string; subject: string; text: string; html?: string }> = [];
+  attempts = 0;
+  /** Si se define, todos los envíos fallan con este error. */
+  failWith?: Error;
+  /** Número de envíos que fallan antes de empezar a funcionar. */
+  failTimes = 0;
+  async send(msg: { to: string; subject: string; text: string; html?: string }) {
+    this.attempts++;
+    if (this.failWith) throw this.failWith;
+    if (this.failTimes > 0) { this.failTimes--; throw new Error('fallo transitorio'); }
+    this.sent.push(msg);
+  }
 }

@@ -10,11 +10,3 @@ export interface AuditEntry {
 export interface AuditPort {
   record(entry: AuditEntry): Promise<void>;
 }
-export interface DomainEvent {
-  type: string;
-  [key: string]: unknown;
-}
-export interface EventBus {
-  publish(event: DomainEvent): void;
-  subscribe(type: string, handler: (event: DomainEvent) => void | Promise<void>): void;
-}

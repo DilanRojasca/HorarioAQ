@@ -13,14 +13,15 @@ enum Role {
 }
 
 model User {
-  id           String        @id @default(uuid()) @db.Uuid
-  name         String
-  email        String        @unique
-  passwordHash String
-  role         Role          @default(STUDENT)
-  active       Boolean       @default(true)
-  enrollments  Enrollment[]
-  sessions     ClassSession[]
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String
+  email         String         @unique
+  passwordHash  String
+  role          Role           @default(STUDENT)
+  active        Boolean        @default(true)
+  enrollments   Enrollment[]
+  sessions      ClassSession[]
+  notifications Notification[]
 }
 
 model Enrollment {
@@ -75,6 +76,7 @@ model SyncRun {
   studentsSynced Int       @default(0)
   changesCount   Int       @default(0)
   status         String    @default("RUNNING")
+  stats          Json?
 }
 
 model AuditLog {
@@ -91,4 +93,46 @@ model AuditLog {
 model RevokedToken {
   jti       String   @id
   expiresAt DateTime
+}
+
+model DomainEvent {
+  id         String          @id @default(uuid()) @db.Uuid
+  type       String
+  payload    Json
+  occurredAt DateTime        @default(now())
+  deliveries EventDelivery[]
+
+  @@index([occurredAt])
+}
+
+model EventDelivery {
+  id          String      @id @default(uuid()) @db.Uuid
+  eventId     String      @db.Uuid
+  observer    String
+  status      String
+  attempts    Int
+  error       String?
+  deliveredAt DateTime    @default(now())
+  event       DomainEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+}
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  kind      String
+  title     String
+  message   String
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+  emailedAt DateTime?
+  /// Terminal: el correo no aplica (usuario inexistente o inactivo); nunca se vuelve a intentar.
+  emailSkippedAt DateTime?
+  /// Envíos fallidos; al llegar al tope el job de pendientes deja de reintentar.
+  emailAttempts  Int       @default(0)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([emailedAt, createdAt])
 }

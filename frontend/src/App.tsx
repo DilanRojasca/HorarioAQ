@@ -5,10 +5,14 @@ import AdminPage from './features/admin/AdminPage';
 import SchedulePage from './features/schedule/SchedulePage';
 import Layout from './shared/Layout';
 import ProtectedRoute from './shared/ProtectedRoute';
+import { RealtimeProvider } from './shared/RealtimeProvider';
+import { ToastProvider } from './features/notifications/ToastProvider';
 
 export default function App() {
   return (
     <AuthProvider>
+      <ToastProvider>
+      <RealtimeProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -24,6 +28,8 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </RealtimeProvider>
+      </ToastProvider>
     </AuthProvider>
   );
 }

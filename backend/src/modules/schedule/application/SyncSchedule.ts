@@ -1,5 +1,6 @@
 import { AppError } from '../../../shared/errors';
-import { EventBus, UseCase } from '../../../shared/ports';
+import { EventBus } from '../../../shared/events/EventBus';
+import { UseCase } from '../../../shared/ports';
 import { diffSchedules } from '../domain/diff';
 import { EnrollmentRepository, InstitutionalPort, ScheduleRepository, SyncRunRepository } from './ports';
 
@@ -34,12 +35,14 @@ export class SyncScheduleUseCase implements UseCase<SyncInput, SyncResult> {
       ids = await enrollments.listActiveStudentIds(semester);
     } catch (err) {
       await syncRuns.finish(run.id, { status: 'FAILED', studentsSynced: 0, changesCount: 0 });
+      this.publishFailed(run.id, input.trigger, err);
       throw err;
     }
 
     let synced = 0;
     let failures = 0;
     let changesCount = 0;
+    const changesByType = { ADDED: 0, UPDATED: 0, CANCELLED: 0 };
     let firstError: unknown;
     for (const batch of chunk(ids, concurrency)) {
       const settled = await Promise.allSettled(
@@ -51,7 +54,8 @@ export class SyncScheduleUseCase implements UseCase<SyncInput, SyncResult> {
           const changes = diffSchedules(local, remote);
           if (changes.length === 0) return 0;
           await schedules.applyChanges(userId, semester, changes);
-          bus.publish({ type: 'ScheduleChanged', userId, semester, changes });
+          for (const c of changes) changesByType[c.type]++;
+          void bus.publish('ScheduleChanged', { userId, semester, changes, initialLoad: local.length === 0 }); // nunca rechaza
           return changes.length;
         }),
       );
@@ -63,9 +67,17 @@ export class SyncScheduleUseCase implements UseCase<SyncInput, SyncResult> {
 
     if (ids.length > 0 && synced === 0) {
       await syncRuns.finish(run.id, { status: 'FAILED', studentsSynced: synced, changesCount });
+      this.publishFailed(run.id, input.trigger, firstError);
       throw firstError;
     }
     await syncRuns.finish(run.id, { status: failures > 0 ? 'PARTIAL' : 'OK', studentsSynced: synced, changesCount });
+    void bus.publish('SyncCompleted', {
+      runId: run.id, trigger: input.trigger, studentsSynced: synced, changesCount, failures, changesByType,
+    });
     return { runId: run.id, studentsSynced: synced, changesCount, failures };
+  }
+
+  private publishFailed(runId: string, trigger: SyncInput['trigger'], err: unknown) {
+    void this.d.bus.publish('SyncFailed', { runId, trigger, message: err instanceof Error ? err.message : String(err) });
   }
 }

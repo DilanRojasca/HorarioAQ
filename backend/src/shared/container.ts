@@ -1,8 +1,12 @@
 import { withAudit } from './audit';
 import { Config } from './config';
-import { AuditPort, EventBus } from './ports';
+import { EventBus } from './events/EventBus';
+import { EventLog } from './events/types';
+import { AuditPort } from './ports';
+import { SseHub } from '../modules/realtime/SseHub';
 import { LoginUseCase } from '../modules/auth/application/Login';
 import { LogoutUseCase } from '../modules/auth/application/Logout';
+import { NotificationRepository } from '../modules/notifications/application/ports';
 import { PasswordHasher, RevokedTokenRepository, TokenService, UserRepository } from '../modules/auth/application/ports';
 import { ExportScheduleUseCase, ExportFormat } from '../modules/schedule/application/ExportSchedule';
 import { GetSessionDetailUseCase } from '../modules/schedule/application/GetSessionDetail';
@@ -22,6 +26,9 @@ export interface Ports {
   tokens: TokenService;
   audit: AuditPort;
   bus: EventBus;
+  eventLog: EventLog;
+  notifications: NotificationRepository;
+  hub: SseHub;
   exporters: Record<ExportFormat, BaseExporter>;
 }
 
@@ -59,6 +66,9 @@ export function buildContainer(p: Ports, cfg: Config) {
     exportSchedule: new ExportScheduleUseCase(weekly, p.users, p.exporters),
     sync,
     syncRuns: p.syncRuns,
+    eventLog: p.eventLog,
+    notifications: p.notifications,
+    hub: p.hub,
     tokens: p.tokens,
     revoked: p.revoked,
   };

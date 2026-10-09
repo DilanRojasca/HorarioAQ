@@ -2,10 +2,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import { buildContainer } from '../../src/shared/container';
 import { createApp } from '../../src/shared/http/app';
-import { InMemoryEventBus } from '../../src/shared/eventBus';
+import { SseHub } from '../../src/modules/realtime/SseHub';
+import { EventBus } from '../../src/shared/events/EventBus';
+import { InMemoryEventLog } from '../../src/shared/events/InMemoryEventLog';
 import { IcsExporter } from '../../src/modules/schedule/infrastructure/exporters/IcsExporter';
 import { PdfExporter } from '../../src/modules/schedule/infrastructure/exporters/PdfExporter';
-import { registerAuditListener } from '../../src/modules/audit/auditListener';
+import { registerAuditObserver } from '../../src/modules/audit/auditObserver';
 import {
   FakeHasher, FakeInstitutional, FakeTokens, InMemoryEnrollmentRepo, InMemoryRevoked,
   InMemoryScheduleRepo, InMemorySyncRuns, InMemoryUsers, RecordingAudit, session,
@@ -26,14 +28,14 @@ beforeEach(() => {
   audit = new RecordingAudit();
   inst = new FakeInstitutional();
   schedules = new InMemoryScheduleRepo();
-  const bus = new InMemoryEventBus();
-  registerAuditListener(bus, audit);
+  const bus = new EventBus({ sleep: async () => {} });
+  registerAuditObserver(bus, audit);
   const mkUser = (id: string, role: 'STUDENT' | 'ADMIN', email = `${id}@x.co`) =>
     ({ id, name: `User ${id}`, email, passwordHash: 'hash:Secreta123!', role, active: true });
   const c = buildContainer({
     schedules, enrollments: new InMemoryEnrollmentRepo(['u1', U2]), institutional: inst,
     syncRuns: new InMemorySyncRuns(), users: new InMemoryUsers([mkUser('u1', 'STUDENT'), mkUser(U2, 'STUDENT', 'u2@x.co'), mkUser('admin', 'ADMIN')]),
-    revoked: new InMemoryRevoked(), hasher: new FakeHasher(), tokens: new FakeTokens(), audit, bus,
+    revoked: new InMemoryRevoked(), hasher: new FakeHasher(), tokens: new FakeTokens(), audit, bus, eventLog: new InMemoryEventLog(), hub: new SseHub(),
     exporters: { ics: new IcsExporter({ semesterStart: cfg.semesterStart, weeks: 16 }), pdf: new PdfExporter({ semester: '2026-2' }) },
   }, cfg);
   app = createApp(c, cfg);

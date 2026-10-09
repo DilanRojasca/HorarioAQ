@@ -32,7 +32,7 @@ async function main() {
   // Carga inicial del horario base (1.ª consulta del adaptador mock).
   const app = wire();
   const r = await app.sync.execute({ trigger: 'MANUAL', actorId: 'seed' });
-  await app.bus.idle(); // espera a los handlers de ScheduleChanged (auditoría) antes de desconectar
+  await app.bus.idle(); // espera a los observadores en curso (auditoría, historial) antes de desconectar
   console.log('Seed OK. Sincronización inicial:', r);
 }
 
