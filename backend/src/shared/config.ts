@@ -8,5 +8,8 @@ export const config = {
   semesterWeeks: Number(env.SEMESTER_WEEKS ?? 16),
   syncCron: env.SYNC_CRON ?? '0 3 * * *',
   syncConcurrency: Number(env.SYNC_CONCURRENCY ?? 5),
+  notifyWindowStart: Number(env.NOTIFY_WINDOW_START ?? 6),
+  notifyWindowEnd: Number(env.NOTIFY_WINDOW_END ?? 22),
+  notifyTimezone: env.NOTIFY_WINDOW_TZ ?? 'America/Bogota',
 };
 export type Config = typeof config;

@@ -5,6 +5,7 @@ import { EventLog } from './events/types';
 import { AuditPort } from './ports';
 import { LoginUseCase } from '../modules/auth/application/Login';
 import { LogoutUseCase } from '../modules/auth/application/Logout';
+import { NotificationRepository } from '../modules/notifications/application/ports';
 import { PasswordHasher, RevokedTokenRepository, TokenService, UserRepository } from '../modules/auth/application/ports';
 import { ExportScheduleUseCase, ExportFormat } from '../modules/schedule/application/ExportSchedule';
 import { GetSessionDetailUseCase } from '../modules/schedule/application/GetSessionDetail';
@@ -25,6 +26,7 @@ export interface Ports {
   audit: AuditPort;
   bus: EventBus;
   eventLog: EventLog;
+  notifications: NotificationRepository;
   exporters: Record<ExportFormat, BaseExporter>;
 }
 
@@ -63,6 +65,7 @@ export function buildContainer(p: Ports, cfg: Config) {
     sync,
     syncRuns: p.syncRuns,
     eventLog: p.eventLog,
+    notifications: p.notifications,
     tokens: p.tokens,
     revoked: p.revoked,
   };

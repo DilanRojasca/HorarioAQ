@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { ClassSession, ScheduleChange } from '../../src/modules/schedule/domain/types';
 import {
   EnrollmentRepository, InstitutionalPort, ScheduleRepository, SyncRunRecord, SyncRunRepository,
@@ -5,6 +6,8 @@ import {
 import {
   PasswordHasher, RevokedTokenRepository, TokenPayload, TokenService, User, UserRepository,
 } from '../../src/modules/auth/application/ports';
+import { NotificationRecord, NotificationRepository } from '../../src/modules/notifications/application/ports';
+import { NotificationKind } from '../../src/shared/events/types';
 import { AuditEntry, AuditPort } from '../../src/shared/ports';
 import { unauthorized } from '../../src/shared/errors';
 
@@ -96,4 +99,45 @@ export class FakeTokens implements TokenService {
 export class RecordingAudit implements AuditPort {
   entries: AuditEntry[] = [];
   async record(e: AuditEntry) { this.entries.push(e); }
+}
+
+export class InMemoryNotifications implements NotificationRepository {
+  rows: NotificationRecord[] = [];
+  private n = 0;
+  async create(n: { userId: string; kind: NotificationKind; title: string; message: string }) {
+    const rec: NotificationRecord = {
+      id: randomUUID(), ...n, createdAt: new Date(Date.now() + ++this.n), readAt: null, emailedAt: null,
+    };
+    this.rows.push(rec);
+    return rec;
+  }
+  async listByUser(userId: string, opts: { unreadOnly?: boolean; limit: number }) {
+    return this.rows
+      .filter((r) => r.userId === userId && (!opts.unreadOnly || r.readAt === null))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, opts.limit);
+  }
+  async countUnread(userId: string) { return this.rows.filter((r) => r.userId === userId && r.readAt === null).length; }
+  async markRead(userId: string, id: string) {
+    const r = this.rows.find((x) => x.id === id && x.userId === userId);
+    if (!r) return false;
+    r.readAt ??= new Date();
+    return true;
+  }
+  async markAllRead(userId: string) {
+    const unread = this.rows.filter((r) => r.userId === userId && r.readAt === null);
+    unread.forEach((r) => { r.readAt = new Date(); });
+    return unread.length;
+  }
+  async findById(id: string) { return this.rows.find((r) => r.id === id) ?? null; }
+  async markEmailed(id: string, at: Date) {
+    const r = this.rows.find((x) => x.id === id);
+    if (r) r.emailedAt = at;
+  }
+  async listPendingEmail(since: Date, limit: number) {
+    return this.rows
+      .filter((r) => r.emailedAt === null && r.createdAt >= since)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .slice(0, limit);
+  }
 }
