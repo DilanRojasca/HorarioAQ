@@ -8,6 +8,8 @@ export interface Gap extends GapKey {
 }
 
 export const listGaps = () => api.get<Gap[]>('/gaps');
-export const assignActivity = (k: GapKey, title: string) => api.put('/gaps/activity', { ...k, title });
-export const removeActivity = (k: GapKey) => api.del('/gaps/activity', k);
+/** CRUD de actividades de huecos (RF-HUE-03): POST crea (201, 409 si ya existe o el hueco está ocupado), PUT actualiza, DELETE elimina. */
+export const createActivity = (k: GapKey, title: string) => api.post('/gaps/activities', { ...k, title });
+export const updateActivity = (k: GapKey, title: string) => api.put('/gaps/activities', { ...k, title });
+export const removeActivity = (k: GapKey) => api.del('/gaps/activities', k);
 export const setGapStatus = (k: GapKey, status: GapStatus) => api.put('/gaps/status', { ...k, status });

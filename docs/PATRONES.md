@@ -1,6 +1,6 @@
 # Patrones de diseño: dónde nacen, dónde se usan y por qué
 
-Guía línea por línea. Cada patrón tiene la misma ficha:
+Cada patrón se documenta con la misma ficha:
 
 * **Idea** en una frase.
 * **Nace en**: el archivo y la línea donde se *define* el patrón (la interfaz, la clase base o el decorador).
@@ -8,11 +8,10 @@ Guía línea por línea. Cada patrón tiene la misma ficha:
 * **Por qué aquí**: el problema concreto del proyecto que resuelve y qué pasaría sin el patrón.
 * **Cómo extenderlo**.
 
-> **Cómo encontrar un patrón en el código.** Cada clase, función o interfaz que implementa un patrón lleva en su JSDoc la etiqueta
-> `@pattern <Patrón> | <Rol> | <Por qué>`. Búscala con `grep -rn "@pattern Observer" backend/src frontend/src`, o abre el
-> **[INDICE_PATRONES.md](INDICE_PATRONES.md)**, que se genera solo (`npm run patterns` en `backend/`) con el archivo y la línea **actuales** de cada marca.
-> Los números de línea de esta guía eran correctos al escribirla y pueden desplazarse unas líneas al añadirse etiquetas; el símbolo (p. ej. `EventBus`) y el índice generado son la referencia fiable.
-> Visión general y diagramas: [ARQUITECTURA.md](ARQUITECTURA.md).
+**Convención de marcado.** Toda clase, función o interfaz que implementa un patrón se anota en su JSDoc con la etiqueta
+`@pattern <Patrón> | <Rol> | <Justificación>`. El índice de la Parte 3 se genera automáticamente a partir de esas etiquetas y refleja
+el archivo y la línea vigentes de cada marca. Los números de línea de esta guía corresponden al momento de su redacción y pueden
+desplazarse ligeramente; el nombre del símbolo (por ejemplo, `EventBus`) y el índice generado constituyen la referencia vigente.
 
 ## Índice
 
@@ -56,7 +55,7 @@ Rutas abreviadas: `backend/src/modules` → `modules`, `backend/src/shared` → 
 | `GapRepository` | [gaps/application/ports.ts:9](../backend/src/modules/gaps/application/ports.ts) | `PrismaGapRepository` — [PrismaGapRepository.ts:7](../backend/src/modules/gaps/infrastructure/PrismaGapRepository.ts) |
 
 **Por qué aquí:** el sistema institucional real todavía no existe (hoy hay un *mock*) y el correo cambia entre desarrollo (consola) y producción (Brevo). Sin puertos habría que tocar los casos de uso en cada cambio.
-La prueba de que funciona: las pruebas usan `InMemoryUsers` ([tests/helpers/inMemory.ts:76](../backend/tests/helpers/inMemory.ts)) en lugar de Prisma, y los casos de uso ni se enteran.
+La prueba de que funciona: las pruebas usan `InMemoryUsers` ([tests/helpers/inMemory.ts:76](../backend/tests/helpers/inMemory.ts)) en lugar de Prisma, sin que los casos de uso lo adviertan.
 
 **Regla verificable:** ninguna carpeta `domain/` ni `application/` importa `@prisma/client`, `express` ni `argon2`.
 
@@ -123,7 +122,7 @@ Para el sistema institucional real basta escribir `UniApiAdapter implements Inst
 **Nace y se usa en:** [shared/prisma.ts:2](../backend/src/shared/prisma.ts): `export const prisma = new PrismaClient()`.
 
 **Por qué aquí:** cada `PrismaClient` abre su propio pool de conexiones; crear uno por petición agotaría PostgreSQL.
-**Matiz honesto:** `EventBus` y `SseHub` también son únicos, pero **por composición** (se crean una vez en `wire()` y se inyectan), no como singletons globales. Eso los hace sustituibles en pruebas.
+**Precisión:** `EventBus` y `SseHub` también son únicos, pero **por composición** (se crean una vez en `wire()` y se inyectan), no como singletons globales. Eso los hace sustituibles en pruebas.
 
 ---
 
@@ -164,7 +163,7 @@ Para el sistema institucional real basta escribir `UniApiAdapter implements Inst
 
 **Lado navegador (otro Observer):** el *Subject* es el flujo SSE. [RealtimeClient](../frontend/src/shared/realtime.ts) (línea 34) expone `subscribe` (línea 56); el hook [`useRealtime`](../frontend/src/shared/RealtimeProvider.tsx) (línea 27) lo envuelve. Se usa en [SchedulePage.tsx:31](../frontend/src/features/schedule/SchedulePage.tsx) (recargar horario) y [useNotifications.ts:56](../frontend/src/features/notifications/useNotifications.ts) y [:58](../frontend/src/features/notifications/useNotifications.ts) (campana y avisos).
 
-**Cómo extenderlo:** escribir el observador, suscribirlo con `bus.subscribe(...)` y añadir **una línea** en `registerObservers.ts`. Ningún caso de uso cambia. Puedes verlo funcionar con el botón «Enviar notificación de prueba» del panel de administración.
+**Cómo extenderlo:** escribir el observador, suscribirlo con `bus.subscribe(...)` y añadir **una línea** en `registerObservers.ts`. Ningún caso de uso cambia. Su funcionamiento puede demostrarse desde el panel de administración con la acción «Enviar notificación de prueba».
 
 ---
 
@@ -200,7 +199,7 @@ Para el sistema institucional real basta escribir `UniApiAdapter implements Inst
 
 **Segundo decorador:** [DevLoggingOtpMailer.ts:9](../backend/src/modules/auth/infrastructure/DevLoggingOtpMailer.ts) envuelve a un `OtpMailer` y además imprime el código en consola. Se activa **solo en desarrollo** en [main.ts:64](../backend/src/main.ts).
 
-**Por qué aquí:** la auditoría es una preocupación transversal (RNF-14). Si cada caso de uso llamara a `audit.record(...)`, se olvidaría en alguno y el código de negocio se llenaría de ruido. Con el decorador, `LoginUseCase` no sabe que lo auditan.
+**Por qué aquí:** la auditoría es una preocupación transversal (RNF-14). Si cada caso de uso llamara a `audit.record(...)`, se olvidaría en alguno y el código de negocio se llenaría de ruido. Con el decorador, `LoginUseCase` no conoce que es auditado.
 
 ---
 
@@ -280,7 +279,7 @@ Para el sistema institucional real basta escribir `UniApiAdapter implements Inst
 
 **Nace en:** [shared/ports.ts:1](../backend/src/shared/ports.ts) — `interface UseCase<I, O> { execute(input: I): Promise<O> }`.
 
-**Se usa en:** todos los casos de uso (`RegisterUseCase`, `SyncScheduleUseCase`, `AssignActivityUseCase`…). Es lo que permite que `withAudit` (patrón 9) decore **cualquiera** de ellos, y que HTTP y `cron` los invoquen igual (por ejemplo [jobs/syncJob.ts](../backend/src/jobs/syncJob.ts) llama a `sync.execute({ trigger: 'CRON' })`).
+**Se usa en:** todos los casos de uso (`RegisterUseCase`, `SyncScheduleUseCase`, `CreateActivityUseCase`…). Es lo que permite que `withAudit` (patrón 9) decore **cualquiera** de ellos, y que HTTP y `cron` los invoquen igual (por ejemplo [jobs/syncJob.ts](../backend/src/jobs/syncJob.ts) llama a `sync.execute({ trigger: 'CRON' })`).
 
 ---
 
@@ -310,9 +309,9 @@ No es un patrón GoF; es la táctica que hace seguro el trabajo cuando hay **rei
 
 ---
 
-## Resumen: «¿dónde está el patrón X?»
+## Resumen de ubicaciones
 
-| Quiero ver… | Abre |
+| Elemento | Ubicación |
 |---|---|
 | el bus de eventos | `backend/src/shared/events/EventBus.ts` |
 | quién escucha qué | `backend/src/shared/registerObservers.ts` |

@@ -10,5 +10,5 @@ export const gapKey = z.object({
   endTime: time.openapi({ example: '14:00' }),
 }).openapi('GapKey');
 
-export const activityBody = gapKey.extend({ title: z.string().openapi({ example: 'Biblioteca', description: '1–80 caracteres.' }) }).strict().openapi('AssignActivityRequest');
+export const activityBody = gapKey.extend({ title: z.string().openapi({ example: 'Biblioteca', description: '1–80 caracteres.' }) }).strict().openapi('GapActivityRequest');
 export const statusBody = gapKey.extend({ status: z.enum(['OCCUPIED', 'AVAILABLE']) }).strict().openapi('SetGapStatusRequest');

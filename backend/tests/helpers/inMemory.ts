@@ -143,12 +143,18 @@ export class InMemoryGaps implements GapRepository {
   private same = (a: GapKey, b: GapKey) => a.weekday === b.weekday && a.startTime === b.startTime && a.endTime === b.endTime;
   async listActivities(userId: string) { return this.activities.filter((a) => a.userId === userId); }
   async listSlots(userId: string) { return this.slots.filter((a) => a.userId === userId); }
-  async upsertActivity(userId: string, k: GapKey, title: string) {
-    const ex = this.activities.find((a) => a.userId === userId && this.same(a, k));
-    if (ex) { ex.title = title; return ex; }
+  async findActivity(userId: string, k: GapKey) { return this.activities.find((a) => a.userId === userId && this.same(a, k)) ?? null; }
+  async createActivity(userId: string, k: GapKey, title: string) {
+    if (await this.findActivity(userId, k)) return null;
     const a = { id: randomUUID(), userId, ...k, title };
     this.activities.push(a);
     return a;
+  }
+  async updateActivity(userId: string, k: GapKey, title: string) {
+    const ex = await this.findActivity(userId, k);
+    if (!ex) return null;
+    ex.title = title;
+    return ex;
   }
   async deleteActivity(userId: string, k: GapKey) {
     const n = this.activities.length;

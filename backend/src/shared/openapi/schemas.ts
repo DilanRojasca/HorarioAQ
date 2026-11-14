@@ -60,7 +60,10 @@ export const Gap = z.object({
     .openapi({ description: 'Solo si el hueco está disponible y no tiene actividad propia.' }),
 }).openapi('Gap');
 
-export const ActivityResponse = z.object({ id, title: z.string() }).openapi('ActivityResponse');
+export const GapActivity = z.object({
+  id, weekday: z.number().int().min(1).max(7), startTime: z.string().openapi({ example: '10:00' }), endTime: z.string().openapi({ example: '14:00' }),
+  title: z.string().openapi({ example: 'Biblioteca' }),
+}).openapi('GapActivity');
 
 export const Notification = z.object({
   id, userId: id,

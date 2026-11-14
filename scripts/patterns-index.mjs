@@ -62,13 +62,11 @@ export function renderIndex(items) {
   for (const it of items) byPattern.set(it.pattern, [...(byPattern.get(it.pattern) ?? []), it]);
   const names = [...byPattern.keys()].sort((a, b) => a.localeCompare(b, 'es'));
   const link = (it) => `[\`${it.file}:${it.line}\`](../${it.file}#L${it.line})`;
-  let md = `# Índice de patrones de diseño (generado)
+  let md = `# Índice de ubicaciones de patrones de diseño
 
-> **Archivo generado automáticamente** con \`node scripts/patterns-index.mjs\` (no editar a mano). Cada fila sale de una etiqueta
-> \`@pattern <Patrón> | <Rol> | <Por qué>\` escrita en el JSDoc de la clase, función o interfaz que **implementa** el patrón;
-> por eso el archivo y la línea siempre coinciden con el código actual. Para buscar a mano: \`grep -rn "@pattern Observer" backend/src frontend/src\`.
->
-> Explicación de cada patrón y por qué se usa: [PATRONES.md](PATRONES.md) · [ARQUITECTURA.md](ARQUITECTURA.md).
+Este índice se genera automáticamente a partir de las etiquetas \`@pattern <Patrón> | <Rol> | <Justificación>\` incluidas en el JSDoc de cada
+clase, función o interfaz que implementa un patrón. El archivo y la línea corresponden siempre al estado actual del código fuente.
+Para regenerarlo: \`node scripts/patterns-index.mjs\` (o \`npm run patterns\` en \`backend/\`).
 
 **${items.length} marcas** en **${names.length} patrones** (${new Set(items.map((i) => i.file)).size} archivos).
 

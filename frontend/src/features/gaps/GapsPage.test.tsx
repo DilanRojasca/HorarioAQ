@@ -8,6 +8,7 @@ vi.mock('../../shared/api', async (orig) => ({ ...(await orig<typeof import('../
 const get = api.get as unknown as ReturnType<typeof vi.fn>;
 const put = api.put as unknown as ReturnType<typeof vi.fn>;
 const del = api.del as unknown as ReturnType<typeof vi.fn>;
+const post = api.post as unknown as ReturnType<typeof vi.fn>;
 
 const gap = (over = {}) => ({
   weekday: 1, startTime: '10:00', endTime: '11:00', minutes: 60, status: 'AVAILABLE', activity: null,
@@ -15,7 +16,7 @@ const gap = (over = {}) => ({
 });
 
 describe('GapsPage (RF-HUE-01..04)', () => {
-  beforeEach(() => { get.mockReset(); put.mockReset(); del.mockReset(); });
+  beforeEach(() => { get.mockReset(); put.mockReset(); del.mockReset(); post.mockReset(); });
 
   it('agrupa por día y muestra la sugerencia según la duración', async () => {
     get.mockResolvedValue([gap(), gap({ weekday: 3, startTime: '12:00', endTime: '14:00', minutes: 120, suggestion: { kind: 'STUDY', title: 'Estudio', detail: '120 min' } })]);
@@ -28,12 +29,12 @@ describe('GapsPage (RF-HUE-01..04)', () => {
 
   it('asigna una actividad propia al hueco y recarga', async () => {
     get.mockResolvedValueOnce([gap()]).mockResolvedValueOnce([gap({ activity: { id: '1', title: 'Biblioteca' }, suggestion: null })]);
-    put.mockResolvedValue({ id: '1', title: 'Biblioteca' });
+    post.mockResolvedValue({ id: '1', title: 'Biblioteca' });
     const user = userEvent.setup();
     render(<GapsPage />);
     await user.type(await screen.findByLabelText('Actividad propia para 10:00–11:00'), 'Biblioteca');
     await user.click(screen.getByRole('button', { name: 'Asignar' }));
-    expect(put).toHaveBeenCalledWith('/gaps/activity', { weekday: 1, startTime: '10:00', endTime: '11:00', title: 'Biblioteca' });
+    expect(post).toHaveBeenCalledWith('/gaps/activities', { weekday: 1, startTime: '10:00', endTime: '11:00', title: 'Biblioteca' });
     expect(await screen.findByText('Biblioteca')).toBeInTheDocument();
   });
 
@@ -52,7 +53,24 @@ describe('GapsPage (RF-HUE-01..04)', () => {
     const user = userEvent.setup();
     render(<GapsPage />);
     await user.click(await screen.findByRole('button', { name: 'Quitar actividad Gym' }));
-    expect(del).toHaveBeenCalledWith('/gaps/activity', { weekday: 1, startTime: '10:00', endTime: '11:00' });
+    expect(del).toHaveBeenCalledWith('/gaps/activities', { weekday: 1, startTime: '10:00', endTime: '11:00' });
+  });
+
+  it('si el hueco ya tiene actividad, el botón es «Actualizar» y usa PUT', async () => {
+    get.mockResolvedValue([gap({ activity: { id: '1', title: 'Gym' }, suggestion: null })]);
+    put.mockResolvedValue({ id: '1', title: 'Natación' });
+    const user = userEvent.setup();
+    render(<GapsPage />);
+    await user.type(await screen.findByLabelText('Actividad propia para 10:00–11:00'), 'Natación');
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+    expect(put).toHaveBeenCalledWith('/gaps/activities', { weekday: 1, startTime: '10:00', endTime: '11:00', title: 'Natación' });
+  });
+
+  it('un hueco ocupado no permite asignar actividad (regla de negocio)', async () => {
+    get.mockResolvedValue([gap({ status: 'OCCUPIED', suggestion: null })]);
+    render(<GapsPage />);
+    expect(await screen.findByLabelText('Actividad propia para 10:00–11:00')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Asignar' })).toBeDisabled();
   });
 
   it('estado vacío', async () => {

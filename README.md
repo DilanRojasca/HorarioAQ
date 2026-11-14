@@ -1,5 +1,7 @@
 # Horario UNI
 
+**Repositorio:** https://github.com/DilanRojasca/HorarioAQ · **Documento de arquitectura:** [docs/DOCUMENTO_ARQUITECTURA.md](docs/DOCUMENTO_ARQUITECTURA.md) · **Guía de ejecución:** [docs/GUIA_EJECUCION.md](docs/GUIA_EJECUCION.md) · **API (Swagger):** `http://localhost:4000/api/v1/docs`
+
 > **Documentación de arquitectura (para la materia):** [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) y, con archivo y línea de cada patrón, [docs/PATRONES.md](docs/PATRONES.md). Cada carpeta de `backend/src` y `frontend/src` tiene su propio `README.md` que explica qué patrón de diseño se usa allí y por qué.
 
 Aplicación de gestión académica personal de la Universidad Católica Luis Amigó. Un estudiante crea su cuenta con correo institucional (verificada por OTP), consulta su horario semanal con búsqueda y filtros, ve el detalle de cada clase, lo exporta (PDF / `.ics`), descubre y organiza sus **tiempos libres** entre clases, recibe **notificaciones** (cambios de horario, recordatorios y avisos propios) por la app o por correo y gestiona su perfil. Un administrador sincroniza los horarios con el sistema institucional, gestiona roles, el catálogo de facultades/programas y consulta la auditoría.

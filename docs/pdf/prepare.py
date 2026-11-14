@@ -1,7 +1,7 @@
-"""Une ARQUITECTURA.md y PATRONES.md en un solo Markdown listo para el PDF:
- - antepone la portada;
- - convierte los enlaces relativos a texto (en papel no se puede hacer clic) conservando el archivo y la línea;
- - marca los bloques mermaid para que mermaid.js los dibuje."""
+"""Arma el Markdown del PDF en el orden del documento de arquitectura:
+   Portada · Índice · Parte I (documento principal) · Anexos A–D.
+ - convierte los enlaces relativos a texto (en papel no se puede hacer clic) conservando archivo y línea;
+ - los bloques mermaid se dibujan con mermaid.js al imprimir."""
 import re, pathlib
 
 docs = pathlib.Path(__file__).resolve().parent.parent
@@ -14,35 +14,43 @@ def clean_links(md: str) -> str:
         path = target.split('#')[0]
         base = path.rstrip('/').split('/')[-1]
         plain = text.strip('`')
-        # «:36», «(:19)» o «:19» sin archivo → anteponer el nombre del archivo del enlace
         if re.fullmatch(r':?\d+(-\d+)?', plain) or plain.startswith(':'):
             return f'`{base}{plain if plain.startswith(":") else ":" + plain}`'
         return text
     return re.sub(r'\[([^\]]+)\]\(([^)\s]+?)(?:\s+"[^"]*")?\)', repl, md)
 
-def body(name, demote=False):
+def body(name):
     md = (docs / name).read_text(encoding='utf-8')
     md = clean_links(md)
     md = md.replace('## Índice', '## Mapa de patrones')
     return md
 
+def strip_title(md):  # quita el primer encabezado de nivel 1
+    return re.sub(r'^# .*\n', '', md, count=1)
+
 cover = '''<div class="cover">
 <div class="uni">Universidad Católica Luis Amigó · Arquitectura de Sistemas</div>
 <h1 class="first">Horario UNI</h1>
-<div class="sub">Documento de arquitectura y patrones de diseño</div>
+<div class="sub">Documento de arquitectura, principios de diseño y API</div>
 <dl>
-<dt>Integrantes</dt><dd>Dilan Alexander Rojas Carmona<br>Sebastian Velez Guarin</dd>
+<dt>Integrantes</dt><dd>Dilan Alexander Rojas Carmona<br>Sebastian Velez Guarin<br>Stefany Useche</dd>
 <dt>Docente</dt><dd>Javier Cardona</dd>
-<dt>Contenido</dt><dd>Parte 1 — Arquitectura del sistema (estilo, capas, módulos, flujos, calidad, trazabilidad)<br>Parte 2 — Catálogo de patrones: dónde nace y dónde se usa cada uno, y por qué<br>Parte 3 — Índice generado desde el código: archivo y línea de cada marca @pattern</dd>
+<dt>Repositorio</dt><dd>https://github.com/DilanRojasca/HorarioAQ</dd>
+<dt>Contenido</dt><dd>Parte I — Documento de arquitectura: alcance, justificación del patrón (Hexagonal), diagramas de puertos y adaptadores por módulo, estructura de carpetas, evidencia SOLID / DRY / KISS, patrones de diseño, requisitos no funcionales, API y persistencia<br>Anexo A — Visión general, flujos y trazabilidad de requisitos<br>Anexo B — Fichas de patrones de diseño<br>Anexo C — Índice de ubicaciones de patrones (generado)<br>Anexo D — Guía de ejecución y consulta de la documentación</dd>
+<dt>Versión</dt><dd>1.0 · Noviembre de 2026</dd>
 <dt>Stack</dt><dd>React 18 + Vite · Node 20 + Express + Prisma · PostgreSQL</dd>
 </dl>
 </div>
 
 '''
 print(cover)
-print('# Parte 1 — Arquitectura\n')
-print(re.sub(r'^# .*\n', '', body('ARQUITECTURA.md'), count=1))
-print('\n# Parte 2 — Patrones de diseño: dónde y por qué\n')
-print(re.sub(r'^# .*\n', '', body('PATRONES.md'), count=1))
-print('\n# Parte 3 — Índice generado de marcas @pattern\n')
-print(re.sub(r'^# .*\n', '', body('INDICE_PATRONES.md'), count=1))
+print('# Parte I — Documento de arquitectura\n')
+print(strip_title(body('DOCUMENTO_ARQUITECTURA.md')))
+print('\n# Anexo A — Visión general, flujos y trazabilidad\n')
+print(strip_title(body('ARQUITECTURA.md')))
+print('\n# Anexo B — Fichas de patrones de diseño\n')
+print(strip_title(body('PATRONES.md')))
+print('\n# Anexo C — Índice de ubicaciones de patrones\n')
+print(strip_title(body('INDICE_PATRONES.md')).replace('\n## ', '\n### '))
+print('\n# Anexo D — Guía de ejecución y consulta de la documentación\n')
+print(strip_title(body('GUIA_EJECUCION.md')))

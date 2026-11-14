@@ -1,13 +1,11 @@
 # Arquitectura de Horario UNI
 
-Documento de arquitectura para la materia **Arquitectura de Sistemas**. Explica el estilo elegido, la
-regla de dependencias, dónde vive cada patrón de diseño (con enlaces al código), cómo se cumplen los
-atributos de calidad del SRS y la trazabilidad requisito → código → prueba.
+Este documento describe la arquitectura del sistema **Horario UNI**: el estilo arquitectónico adoptado, la regla de
+dependencias entre capas, la ubicación y justificación de cada patrón de diseño, el cumplimiento de los atributos de
+calidad definidos en el documento de requisitos (SRS) y la trazabilidad requisito → código → prueba.
 
-> Cada carpeta importante tiene además su propio `README.md` que explica **qué patrón se usa allí y por qué**.
-> Empieza por el de la carpeta que estés leyendo: [backend/src](../backend/src/README.md) · [frontend/src](../frontend/src/README.md).
-
-> **¿Buscas la línea exacta de cada patrón?** → [PATRONES.md](PATRONES.md) (por qué se usa ahí y cómo extenderlo) e [INDICE_PATRONES.md](INDICE_PATRONES.md) (generado: archivo y línea actuales de cada marca `@pattern`).
+Este anexo complementa el documento principal con la visión general del sistema, los flujos principales y la trazabilidad de requisitos. El detalle de
+cada patrón se presenta en el Anexo B y el índice de ubicaciones generado a partir del código fuente, en el Anexo C.
 
 ## 1. Estilo arquitectónico
 
@@ -89,14 +87,13 @@ y los tests de dominio corren sin base de datos.
 
 ## 4. Catálogo de patrones de diseño
 
-Cada fila indica **qué problema resuelve aquí** y dónde verlo. Los patrones marcados ★ se añadieron en la
-segunda iteración.
+Cada fila indica **qué problema resuelve aquí** y dónde verlo.
 
 ### Patrones creacionales
 
 | Patrón | Dónde | Problema que resuelve |
 |---|---|---|
-| **Factory (Method)** | [`buildEmailAdapter`](../backend/src/modules/notifications/infrastructure/buildEmailAdapter.ts) · [`buildScheduleSpec`](../backend/src/modules/schedule/domain/specifications.ts) ★ | Decidir *qué* objeto crear según la configuración (correo en consola vs Brevo; qué filtros componer) sin que el cliente conozca las clases concretas. |
+| **Factory (Method)** | [`buildEmailAdapter`](../backend/src/modules/notifications/infrastructure/buildEmailAdapter.ts) · [`buildScheduleSpec`](../backend/src/modules/schedule/domain/specifications.ts) | Decidir *qué* objeto crear según la configuración (correo en consola vs Brevo; qué filtros componer) sin que el cliente conozca las clases concretas. |
 | **Singleton** | [`shared/prisma.ts`](../backend/src/shared/prisma.ts) · [`shared/config.ts`](../backend/src/shared/config.ts). `EventBus` y `SseHub` son instancias únicas **por composición** (se crean una vez en `wire()` y se inyectan), no singletons globales | Un único *pool* de conexiones y una única configuración por proceso. |
 | **Dependency Injection** (composición) | [`shared/container.ts`](../backend/src/shared/container.ts) (`buildContainer`) y [`main.ts`](../backend/src/main.ts) (`wire`) | Un solo lugar ("composition root") ensambla casos de uso con sus adaptadores. Los tests inyectan dobles en memoria. |
 
@@ -104,23 +101,23 @@ segunda iteración.
 
 | Patrón | Dónde | Problema que resuelve |
 |---|---|---|
-| **Repository** | Puertos en `*/application/ports.ts` ([auth](../backend/src/modules/auth/application/ports.ts), [schedule](../backend/src/modules/schedule/application/ports.ts), [notifications](../backend/src/modules/notifications/application/ports.ts), [gaps](../backend/src/modules/gaps/application/ports.ts)) ★; implementaciones `Prisma*Repository` y `InMemory*` en [tests/helpers](../backend/tests/helpers/inMemory.ts) | Aislar la persistencia: el caso de uso pide "guardar este OTP" sin saber si es SQL o memoria. |
-| **Adapter** | [`MockInstitutionalAdapter`](../backend/src/modules/schedule/infrastructure/MockInstitutionalAdapter.ts) (→ `InstitutionalPort`) · [`BrevoEmailAdapter`/`ConsoleEmailAdapter`](../backend/src/modules/notifications/infrastructure) (→ `EmailPort`) · [`EmailOtpMailer`](../backend/src/modules/auth/infrastructure/EmailOtpMailer.ts) ★ (adapta `EmailPort` al puerto `OtpMailer` de auth) · [`Argon2Hasher`](../backend/src/modules/auth/infrastructure/Argon2Hasher.ts) · [`JwtTokenService`](../backend/src/modules/auth/infrastructure/JwtTokenService.ts) | Conectar una API externa o librería a la interfaz que espera el dominio. Para usar el sistema institucional real solo se escribe otro adaptador. |
-| **Facade** | [`SyncScheduleUseCase`](../backend/src/modules/schedule/application/SyncSchedule.ts) (adaptador → diff → persistencia → eventos) · [`RegisterUseCase`](../backend/src/modules/auth/application/Register.ts) ★ · [`GapService`](../backend/src/modules/gaps/application/GapUseCases.ts) ★ | Una interfaz simple (`execute`) que oculta una orquestación de varios pasos y subsistemas. |
-| **Decorator** | [`withAudit`](../backend/src/shared/audit.ts) aplicado en el contenedor a login, registro, sincronización, roles, catálogo… ★ · [`DevLoggingOtpMailer`](../backend/src/modules/auth/infrastructure/DevLoggingOtpMailer.ts) ★ | Añadir comportamiento transversal (auditar, loguear el OTP en desarrollo) **sin modificar** la clase decorada. |
-| **Proxy / Interceptor** | [`frontend/src/shared/api.ts`](../frontend/src/shared/api.ts) ★ | El cliente HTTP intercepta cada respuesta 401, rota el *refresh token* una sola vez (*single-flight*) y reintenta; las pantallas ni se enteran. |
-| **Specification** | [`schedule/domain/specifications.ts`](../backend/src/modules/schedule/domain/specifications.ts) ★ (réplica cliente: [`filter.ts`](../frontend/src/features/schedule/filter.ts)) | Criterios de búsqueda reutilizables y combinables (`and`/`or`/`not`): nombre/código, día, bloque, docente. |
+| **Repository** | Puertos en `*/application/ports.ts` ([auth](../backend/src/modules/auth/application/ports.ts), [schedule](../backend/src/modules/schedule/application/ports.ts), [notifications](../backend/src/modules/notifications/application/ports.ts), [gaps](../backend/src/modules/gaps/application/ports.ts)); implementaciones `Prisma*Repository` y `InMemory*` en [tests/helpers](../backend/tests/helpers/inMemory.ts) | Aislar la persistencia: el caso de uso pide "guardar este OTP" sin saber si es SQL o memoria. |
+| **Adapter** | [`MockInstitutionalAdapter`](../backend/src/modules/schedule/infrastructure/MockInstitutionalAdapter.ts) (→ `InstitutionalPort`) · [`BrevoEmailAdapter`/`ConsoleEmailAdapter`](../backend/src/modules/notifications/infrastructure) (→ `EmailPort`) · [`EmailOtpMailer`](../backend/src/modules/auth/infrastructure/EmailOtpMailer.ts) (adapta `EmailPort` al puerto `OtpMailer` de auth) · [`Argon2Hasher`](../backend/src/modules/auth/infrastructure/Argon2Hasher.ts) · [`JwtTokenService`](../backend/src/modules/auth/infrastructure/JwtTokenService.ts) | Conectar una API externa o librería a la interfaz que espera el dominio. Para usar el sistema institucional real solo se escribe otro adaptador. |
+| **Facade** | [`SyncScheduleUseCase`](../backend/src/modules/schedule/application/SyncSchedule.ts) (adaptador → diff → persistencia → eventos) · [`RegisterUseCase`](../backend/src/modules/auth/application/Register.ts) · [`GapService`](../backend/src/modules/gaps/application/GapUseCases.ts) | Una interfaz simple (`execute`) que oculta una orquestación de varios pasos y subsistemas. |
+| **Decorator** | [`withAudit`](../backend/src/shared/audit.ts) aplicado en el contenedor a login, registro, sincronización, roles, catálogo… · [`DevLoggingOtpMailer`](../backend/src/modules/auth/infrastructure/DevLoggingOtpMailer.ts) | Añadir comportamiento transversal (auditar, loguear el OTP en desarrollo) **sin modificar** la clase decorada. |
+| **Proxy / Interceptor** | [`frontend/src/shared/api.ts`](../frontend/src/shared/api.ts) | El cliente HTTP intercepta cada respuesta 401, rota el *refresh token* una sola vez (*single-flight*) y reintenta; las pantallas no requieren conocer este mecanismo. |
+| **Specification** | [`schedule/domain/specifications.ts`](../backend/src/modules/schedule/domain/specifications.ts) (réplica cliente: [`filter.ts`](../frontend/src/features/schedule/filter.ts)) | Criterios de búsqueda reutilizables y combinables (`and`/`or`/`not`): nombre/código, día, bloque, docente. |
 
 ### Patrones de comportamiento
 
 | Patrón | Dónde | Problema que resuelve |
 |---|---|---|
 | **Observer** (eventos de dominio) | [`EventBus`](../backend/src/shared/events/EventBus.ts) + observadores [`audit`](../backend/src/modules/audit/auditObserver.ts), [`notifications`](../backend/src/modules/notifications/application/NotificationObserver.ts), [`email`](../backend/src/modules/notifications/application/EmailObserver.ts), [`realtime-*`](../backend/src/modules/realtime/RealtimeObserver.ts), [`sync-stats`](../backend/src/modules/schedule/observers/syncStatsObserver.ts); en el navegador [`RealtimeClient`](../frontend/src/shared/realtime.ts) | Reaccionar a un hecho sin que el productor conozca a los consumidores. Añadir un observador no toca `SyncSchedule`. Ver §5. |
-| **Strategy** | [`gaps/domain/suggestions.ts`](../backend/src/modules/gaps/domain/suggestions.ts) ★ (descanso/alimentación/estudio por duración) · [`notifications/domain/channelPolicy.ts`](../backend/src/modules/notifications/domain/channelPolicy.ts) ★ (qué canales usa cada preferencia) · exportadores por formato `Record<ExportFormat, BaseExporter>` | Intercambiar algoritmos/reglas sin `if/else`: añadir una regla nueva = una estrategia nueva (Open/Closed). |
+| **Strategy** | [`gaps/domain/suggestions.ts`](../backend/src/modules/gaps/domain/suggestions.ts) (descanso/alimentación/estudio por duración) · [`notifications/domain/channelPolicy.ts`](../backend/src/modules/notifications/domain/channelPolicy.ts) (qué canales usa cada preferencia) · exportadores por formato `Record<ExportFormat, BaseExporter>` | Intercambiar algoritmos/reglas sin `if/else`: añadir una regla nueva = una estrategia nueva (Open/Closed). |
 | **Template Method** | [`BaseExporter`](../backend/src/modules/schedule/infrastructure/exporters/BaseExporter.ts) → `PdfExporter`, `IcsExporter` | El esqueleto de la exportación (filtrar activas y ordenar, `render`, nombrar el archivo) es fijo; solo cambia el paso `render`. |
-| **Chain of Responsibility** | Middlewares [`authenticate → requireRole → zod → errorHandler`](../backend/src/shared/http/auth.ts) · [`registrationRules.ts`](../backend/src/modules/auth/domain/registrationRules.ts) ★ (cadena de validación del registro) · [`ProtectedRoute`](../frontend/src/shared/ProtectedRoute.tsx) | Cada eslabón decide si pasa, rechaza o transforma; se pueden añadir eslabones sin tocar los demás. |
+| **Chain of Responsibility** | Middlewares [`authenticate → requireRole → zod → errorHandler`](../backend/src/shared/http/auth.ts) · [`registrationRules.ts`](../backend/src/modules/auth/domain/registrationRules.ts) (cadena de validación del registro) · [`ProtectedRoute`](../frontend/src/shared/ProtectedRoute.tsx) | Cada eslabón decide si pasa, rechaza o transforma; se pueden añadir eslabones sin tocar los demás. |
 | **Command / Use Case** | Interfaz [`UseCase<I, O>`](../backend/src/shared/ports.ts) con `execute(input)`: todos los casos de uso | Cada acción del sistema es un objeto con una sola operación: se puede decorar (auditar), probar aislada y reutilizar desde HTTP o desde un job. |
-| **Idempotent Consumer / Atomic claim** | [`claimEmail`](../backend/src/modules/notifications/application/ports.ts), [`claimDue`](../backend/src/modules/notifications/infrastructure/PrismaScheduledNotificationRepository.ts) ★, [`consume` del refresh token](../backend/src/modules/auth/infrastructure/PrismaRefreshTokenRepository.ts) ★, `dedupKey` de recordatorios | Que dos réplicas o reintentos no envíen dos veces el mismo correo ni usen dos veces un token. (Táctica de confiabilidad más que patrón GoF.) |
+| **Idempotent Consumer / Atomic claim** | [`claimEmail`](../backend/src/modules/notifications/application/ports.ts), [`claimDue`](../backend/src/modules/notifications/infrastructure/PrismaScheduledNotificationRepository.ts), [`consume` del refresh token](../backend/src/modules/auth/infrastructure/PrismaRefreshTokenRepository.ts), `dedupKey` de recordatorios | Que dos réplicas o reintentos no envíen dos veces el mismo correo ni usen dos veces un token. (Táctica de confiabilidad más que patrón GoF.) |
 
 ### En el frontend (React)
 
@@ -128,14 +125,14 @@ segunda iteración.
 |---|---|
 | **Provider / Context** | [`AuthProvider`](../frontend/src/features/auth/AuthContext.tsx), [`ToastProvider`](../frontend/src/features/notifications/ToastProvider.tsx), [`RealtimeProvider`](../frontend/src/shared/RealtimeProvider.tsx) |
 | **Custom Hooks (contenedor / presentación)** | [`useSchedule`](../frontend/src/features/schedule/useSchedule.ts), [`useNotifications`](../frontend/src/features/notifications/useNotifications.ts): el hook obtiene datos, el componente solo dibuja |
-| **Componentes reutilizables (DRY)** | [`shared/forms.tsx`](../frontend/src/shared/forms.tsx) ★: `Field`, `AuthShell`, avisos; un solo estilo y un solo lugar para la accesibilidad |
+| **Componentes reutilizables (DRY)** | [`shared/forms.tsx`](../frontend/src/shared/forms.tsx): `Field`, `AuthShell`, avisos; un solo estilo y un solo lugar para la accesibilidad |
 | **Guard (ProtectedRoute)** | [`ProtectedRoute`](../frontend/src/shared/ProtectedRoute.tsx): decide por rol antes de renderizar |
 
 ## 5. El patrón Observer paso a paso
 
 El bus es el *Subject*; los observadores se suscriben por **tipo de evento** en [`registerObservers.ts`](../backend/src/shared/registerObservers.ts)
 (único lugar de cableado). Entrega en secuencia por prioridad, aislamiento de fallos, reintentos con *backoff* exponencial y registro de cada
-entrega en `EventDelivery` (lo que ves en el panel «Eventos recientes»).
+entrega en `EventDelivery` (consultable en el panel de administración «Eventos recientes»).
 
 ```mermaid
 sequenceDiagram
@@ -157,7 +154,7 @@ sequenceDiagram
 ```
 
 Eventos: `ScheduleChanged`, `SyncCompleted`, `SyncFailed`, `NotificationCreated` (catálogo tipado en
-[`events/types.ts`](../backend/src/shared/events/types.ts)). Detalle y semántica completa: [README raíz → «Eventos y patrón Observer»](../README.md#eventos-y-patrón-observer).
+[`events/types.ts`](../backend/src/shared/events/types.ts)). La semántica completa del bus se documenta en la sección «Eventos y patrón Observer» del README del proyecto.
 
 **Cómo se extiende:** para reaccionar a un evento nuevo (p. ej. enviar un SMS) se escribe un observador y se añade **una línea** en
 `registerObservers.ts`. Ningún caso de uso existente cambia: eso es el principio abierto/cerrado.
@@ -243,7 +240,7 @@ hueco esté ocupado o tenga actividad propia.
 | RF-HOR-01..05 | módulo `schedule` | `schedule/**` |
 | RF-HUE-01 Detectar huecos | `gaps/domain/gaps.ts` | `gaps/gaps.test.ts` |
 | RF-HUE-02 Sugerir por duración | `gaps/domain/suggestions.ts` (Strategy) | `gaps/gaps.test.ts` |
-| RF-HUE-03 Actividad propia | `AssignActivityUseCase` | `gaps/gaps.test.ts`, `GapsPage.test.tsx` |
+| RF-HUE-03 Actividad propia (CRUD) | `CreateActivityUseCase`, `UpdateActivityUseCase`, `RemoveActivityUseCase` | `gaps/gaps.test.ts`, `GapsPage.test.tsx` |
 | RF-HUE-04 Disponible / ocupado | `SetGapStatusUseCase` | ídem |
 | RF-NOT-01 Notificación propia | `CreateCustomNotificationUseCase` | `notifications/scheduled.test.ts`, `NotificationsPage.test.tsx` |
 | RF-NOT-02 Recordatorio configurable (15 min por defecto) | `reminders.ts`, `planReminders`, `reminderJob.ts` | `notifications/scheduled.test.ts` |
@@ -293,15 +290,15 @@ hueco esté ocupado o tenga actividad propia.
 
 Para añadir un endpoint: crear la ruta, exportar su esquema zod desde el `schemas.ts` del módulo y registrarlo con `op({...})` en `shared/openapi/paths.ts`; si se olvida, el test falla.
 
-## 11. Cómo encontrar los patrones en el código
+## 11. Convención de marcado de patrones en el código
 
-Cada clase, función o interfaz que implementa un patrón lleva en su JSDoc `@pattern <Patrón> | <Rol> | <Por qué>`. El script `scripts/patterns-index.mjs`
-(`npm run patterns` en `backend/`) genera `docs/INDICE_PATRONES.md` con el archivo y la línea actuales de las marcas, y un test garantiza que cada patrón declarado
-siga marcado en el código.
+Toda clase, función o interfaz que implementa un patrón de diseño se anota en su JSDoc con la etiqueta estándar
+`@pattern <Patrón> | <Rol> | <Justificación>`. Un script (`scripts/patterns-index.mjs`) recorre el código fuente y genera el índice de
+ubicaciones (archivo y línea vigentes), y una prueba automatizada verifica que cada patrón declarado conserve al menos una marca.
 
 ## 12. Cómo extender
 
-| Quiero… | Hago… |
+| Necesidad | Procedimiento |
 |---|---|
 | Reaccionar a un evento (SMS, Slack…) | Crear el observador y suscribirlo en `registerObservers.ts`. |
 | Una regla de sugerencia nueva | Nueva `SuggestionStrategy` en `gaps/domain/suggestions.ts` y añadirla a `DEFAULT_STRATEGIES`. |

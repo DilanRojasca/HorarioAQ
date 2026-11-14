@@ -1,12 +1,10 @@
-# Índice de patrones de diseño (generado)
+# Índice de ubicaciones de patrones de diseño
 
-> **Archivo generado automáticamente** con `node scripts/patterns-index.mjs` (no editar a mano). Cada fila sale de una etiqueta
-> `@pattern <Patrón> | <Rol> | <Por qué>` escrita en el JSDoc de la clase, función o interfaz que **implementa** el patrón;
-> por eso el archivo y la línea siempre coinciden con el código actual. Para buscar a mano: `grep -rn "@pattern Observer" backend/src frontend/src`.
->
-> Explicación de cada patrón y por qué se usa: [PATRONES.md](PATRONES.md) · [ARQUITECTURA.md](ARQUITECTURA.md).
+Este índice se genera automáticamente a partir de las etiquetas `@pattern <Patrón> | <Rol> | <Justificación>` incluidas en el JSDoc de cada
+clase, función o interfaz que implementa un patrón. El archivo y la línea corresponden siempre al estado actual del código fuente.
+Para regenerarlo: `node scripts/patterns-index.mjs` (o `npm run patterns` en `backend/`).
 
-**108 marcas** en **19 patrones** (65 archivos).
+**109 marcas** en **19 patrones** (66 archivos).
 
 | Patrón | Marcas |
 |---|---|
@@ -14,7 +12,7 @@
 | [Chain of Responsibility](#chain-of-responsibility) | 13 |
 | [Command](#command) | 1 |
 | [Consumidor idempotente](#consumidor-idempotente) | 4 |
-| [Custom Hook](#custom-hook) | 2 |
+| [Custom Hook](#custom-hook) | 3 |
 | [Decorator](#decorator) | 2 |
 | [Dependency Injection](#dependency-injection) | 2 |
 | [Facade](#facade) | 4 |
@@ -40,7 +38,7 @@
 | Adaptador de JwtTokenService | `JwtTokenService` (class) | [`backend/src/modules/auth/infrastructure/JwtTokenService.ts:8`](../backend/src/modules/auth/infrastructure/JwtTokenService.ts#L8) | Adapta la librería jsonwebtoken a la interfaz TokenService que espera auth. |
 | Adaptador de BrevoEmailAdapter | `BrevoEmailAdapter` (class) | [`backend/src/modules/notifications/infrastructure/BrevoEmailAdapter.ts:21`](../backend/src/modules/notifications/infrastructure/BrevoEmailAdapter.ts#L21) | Adapta la API HTTP de Brevo a la interfaz EmailPort que usan los observadores. |
 | Adaptador de ConsoleEmailAdapter | `ConsoleEmailAdapter` (class) | [`backend/src/modules/notifications/infrastructure/ConsoleEmailAdapter.ts:8`](../backend/src/modules/notifications/infrastructure/ConsoleEmailAdapter.ts#L8) | Adapta la consola a EmailPort para desarrollo. |
-| Adaptador de MockInstitutionalAdapter | `MockInstitutionalAdapter` (class) | [`backend/src/modules/schedule/infrastructure/MockInstitutionalAdapter.ts:27`](../backend/src/modules/schedule/infrastructure/MockInstitutionalAdapter.ts#L27) | Simula Admisiones/Registro; el real solo requiere otra clase que implemente el puerto. |
+| Adaptador de MockInstitutionalAdapter | `MockInstitutionalAdapter` (class) | [`backend/src/modules/schedule/infrastructure/MockInstitutionalAdapter.ts:18`](../backend/src/modules/schedule/infrastructure/MockInstitutionalAdapter.ts#L18) | Simula Admisiones/Registro; el real solo requiere otra clase que implemente el puerto. |
 
 ## Chain of Responsibility
 
@@ -80,6 +78,7 @@
 | Rol | Símbolo | Ubicación | Por qué aquí |
 |---|---|---|---|
 | Datos de notificaciones | `useNotifications` (function) | [`frontend/src/features/notifications/useNotifications.ts:19`](../frontend/src/features/notifications/useNotifications.ts#L19) | Separa la obtención de datos de la presentación. |
+| Datos de los huecos del calendario | `useGapBlocks` (function) | [`frontend/src/features/schedule/useGapBlocks.ts:12`](../frontend/src/features/schedule/useGapBlocks.ts#L12) | Separa la obtención de datos de la presentación del calendario. |
 | Datos del horario | `useSchedule` (function) | [`frontend/src/features/schedule/useSchedule.ts:6`](../frontend/src/features/schedule/useSchedule.ts#L6) | El hook trae los datos («gana la última respuesta»); el componente solo dibuja. |
 
 ## Decorator
@@ -93,7 +92,7 @@
 
 | Rol | Símbolo | Ubicación | Por qué aquí |
 |---|---|---|---|
-| Ensamblaje con adaptadores reales | `wire` (function) | [`backend/src/main.ts:36`](../backend/src/main.ts#L36) | Crea Prisma, correo y mock institucional y los inyecta en buildContainer. |
+| Ensamblaje con adaptadores reales | `wire` (function) | [`backend/src/main.ts:37`](../backend/src/main.ts#L37) | Crea Prisma, correo y mock institucional y los inyecta en buildContainer. |
 | Composition Root | `buildContainer` (function) | [`backend/src/shared/container.ts:57`](../backend/src/shared/container.ts#L57) | Recibe los puertos ya construidos y devuelve los casos de uso listos. |
 
 ## Facade
@@ -180,7 +179,7 @@
 | Puerto de facultades y programas | `CatalogRepository` (interface) | [`backend/src/modules/catalog/application/CatalogUseCases.ts:12`](../backend/src/modules/catalog/application/CatalogUseCases.ts#L12) | El caso de uso pide guardar/leer con vocabulario del negocio sin saber si hay SQL detrás. |
 | Implementación con Prisma/PostgreSQL | `PrismaCatalogRepository` (class) | [`backend/src/modules/catalog/infrastructure/PrismaCatalogRepository.ts:5`](../backend/src/modules/catalog/infrastructure/PrismaCatalogRepository.ts#L5) | Adaptador de salida del puerto; en las pruebas lo reemplaza una versión InMemory. |
 | Puerto de actividades y estado de huecos | `GapRepository` (interface) | [`backend/src/modules/gaps/application/ports.ts:13`](../backend/src/modules/gaps/application/ports.ts#L13) | El caso de uso pide guardar/leer con vocabulario del negocio sin saber si hay SQL detrás. |
-| Implementación con Prisma/PostgreSQL | `PrismaGapRepository` (class) | [`backend/src/modules/gaps/infrastructure/PrismaGapRepository.ts:8`](../backend/src/modules/gaps/infrastructure/PrismaGapRepository.ts#L8) | Adaptador de salida del puerto; en las pruebas lo reemplaza una versión InMemory. |
+| Implementación con Prisma/PostgreSQL | `PrismaGapRepository` (class) | [`backend/src/modules/gaps/infrastructure/PrismaGapRepository.ts:10`](../backend/src/modules/gaps/infrastructure/PrismaGapRepository.ts#L10) | Adaptador de salida del puerto; en las pruebas lo reemplaza una versión InMemory. |
 | Puerto de notificaciones | `NotificationRepository` (interface) | [`backend/src/modules/notifications/application/ports.ts:28`](../backend/src/modules/notifications/application/ports.ts#L28) | El caso de uso pide guardar/leer con vocabulario del negocio sin saber si hay SQL detrás. |
 | Puerto de notificaciones programadas | `ScheduledNotificationRepository` (interface) | [`backend/src/modules/notifications/application/ports.ts:72`](../backend/src/modules/notifications/application/ports.ts#L72) | El caso de uso pide guardar/leer con vocabulario del negocio sin saber si hay SQL detrás. |
 | Implementación con Prisma/PostgreSQL | `PrismaNotificationRepository` (class) | [`backend/src/modules/notifications/infrastructure/PrismaNotificationRepository.ts:9`](../backend/src/modules/notifications/infrastructure/PrismaNotificationRepository.ts#L9) | Adaptador de salida del puerto; en las pruebas lo reemplaza una versión InMemory. |

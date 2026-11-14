@@ -13,11 +13,17 @@ export function gapRoutes(c: Container) {
   const r = Router();
   r.use(authenticate(c.tokens, c.revoked), requireRole('STUDENT'));
   r.get('/', asyncHandler(async (req, res) => { res.json(await c.listGaps.execute({ userId: req.auth!.sub })); }));
-  r.put('/activity', asyncHandler(async (req, res) => {
+  // Recurso «actividades» de los huecos: CRUD completo (GET lista · POST crea · PUT actualiza · DELETE elimina)
+  r.get('/activities', asyncHandler(async (req, res) => { res.json(await c.listActivities.execute({ userId: req.auth!.sub })); }));
+  r.post('/activities', asyncHandler(async (req, res) => {
     const b = activityBody.parse(req.body);
-    res.json(await c.assignActivity.execute({ userId: req.auth!.sub, gap: asKey(b), title: b.title }));
+    res.status(201).json(await c.createActivity.execute({ userId: req.auth!.sub, gap: asKey(b), title: b.title }));
   }));
-  r.delete('/activity', asyncHandler(async (req, res) => {
+  r.put('/activities', asyncHandler(async (req, res) => {
+    const b = activityBody.parse(req.body);
+    res.json(await c.updateActivity.execute({ userId: req.auth!.sub, gap: asKey(b), title: b.title }));
+  }));
+  r.delete('/activities', asyncHandler(async (req, res) => {
     await c.removeActivity.execute({ userId: req.auth!.sub, gap: asKey(gapKey.parse(req.body)) });
     res.status(204).end();
   }));

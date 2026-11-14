@@ -14,9 +14,22 @@ export class PrismaGapRepository implements GapRepository {
   async listSlots(userId: string) {
     return (await prisma.gapSlot.findMany({ where: { userId } })).map((s) => ({ ...s, weekday: s.weekday as Weekday, status: s.status as GapStatus }) as GapSlotRecord);
   }
-  async upsertActivity(userId: string, k: GapKey, title: string) {
-    const a = await prisma.gapActivity.upsert({ where: where(userId, k), create: { userId, ...key(k), title }, update: { title } });
-    return { ...a, weekday: a.weekday as Weekday };
+  async findActivity(userId: string, k: GapKey) {
+    const a = await prisma.gapActivity.findUnique({ where: where(userId, k) });
+    return a ? { ...a, weekday: a.weekday as Weekday } : null;
+  }
+  async createActivity(userId: string, k: GapKey, title: string) {
+    try {
+      const a = await prisma.gapActivity.create({ data: { userId, ...key(k), title } });
+      return { ...a, weekday: a.weekday as Weekday };
+    } catch (e) {
+      if ((e as { code?: string }).code === 'P2002') return null; // restricción única: ya había una actividad en ese hueco
+      throw e;
+    }
+  }
+  async updateActivity(userId: string, k: GapKey, title: string) {
+    const r = await prisma.gapActivity.updateMany({ where: { userId, ...key(k) }, data: { title } });
+    return r.count === 0 ? null : this.findActivity(userId, k);
   }
   async deleteActivity(userId: string, k: GapKey) {
     return (await prisma.gapActivity.deleteMany({ where: { userId, ...key(k) } })).count > 0;

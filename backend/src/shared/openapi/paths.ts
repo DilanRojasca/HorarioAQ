@@ -62,9 +62,14 @@ export function registerAllPaths() {
   op({ method: 'get', path: '/gaps', tag: 'Gaps', operationId: 'listGaps', summary: 'Mis huecos entre clases', access: 'student', requirement: 'RF-HUE-01, RF-HUE-02',
     description: 'Espacios de al menos 15 min entre clases consecutivas del mismo día, con la sugerencia calculada por el patrón Strategy (<30 descanso · 30–60 alimentación · >60 estudio).',
     response: z.array(S.Gap) });
-  op({ method: 'put', path: '/gaps/activity', tag: 'Gaps', operationId: 'assignGapActivity', summary: 'Asignar una actividad propia a un hueco', access: 'student', requirement: 'RF-HUE-03',
-    body: activityBody, response: S.ActivityResponse, errors: [404] });
-  op({ method: 'delete', path: '/gaps/activity', tag: 'Gaps', operationId: 'removeGapActivity', summary: 'Quitar la actividad de un hueco', status: 204, access: 'student', body: gapKey, errors: [404] });
+  op({ method: 'get', path: '/gaps/activities', tag: 'Gaps', operationId: 'listGapActivities', summary: 'Mis actividades en huecos', access: 'student', requirement: 'RF-HUE-03',
+    response: z.array(S.GapActivity) });
+  op({ method: 'post', path: '/gaps/activities', tag: 'Gaps', operationId: 'createGapActivity', summary: 'Crear una actividad propia en un hueco', status: 201, access: 'student', requirement: 'RF-HUE-03',
+    description: 'Regla de negocio: el hueco debe existir en tu horario actual (`404` si no), no estar marcado como ocupado y no tener ya una actividad (`409` en ambos casos). Para modificar una existente usa `PUT`.',
+    body: activityBody, response: S.GapActivity, errors: [404, 409] });
+  op({ method: 'put', path: '/gaps/activities', tag: 'Gaps', operationId: 'updateGapActivity', summary: 'Actualizar la actividad de un hueco', access: 'student', requirement: 'RF-HUE-03',
+    body: activityBody, response: S.GapActivity, errors: [404] });
+  op({ method: 'delete', path: '/gaps/activities', tag: 'Gaps', operationId: 'removeGapActivity', summary: 'Eliminar la actividad de un hueco', status: 204, access: 'student', body: gapKey, errors: [404] });
   op({ method: 'put', path: '/gaps/status', tag: 'Gaps', operationId: 'setGapStatus', summary: 'Marcar un hueco como ocupado o disponible', status: 204, access: 'student', requirement: 'RF-HUE-04',
     description: 'Un hueco ocupado deja de recibir sugerencias.', body: statusBody, errors: [404] });
 

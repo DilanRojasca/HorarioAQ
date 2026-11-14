@@ -96,8 +96,8 @@ async function main() {
   for (const [email, title] of [['laura.gomez@amigo.edu.co', 'Biblioteca: leer para Desarrollo Humano'], ['dilan@horariouni.test', 'Gimnasio'], ['valentina.rios@amigo.edu.co', 'Reunión del semillero']] as const) {
     const userId = ids.get(email)!;
     const gaps = await app.listGaps.execute({ userId });
-    if (gaps[0]) await app.assignActivity.execute({ userId, gap: gaps[0], title });
-    if (gaps[1]) await app.setGapStatus.execute({ userId, gap: gaps[1], status: 'OCCUPIED' });
+    if (gaps[0]) await app.createActivity.execute({ userId, gap: { weekday: gaps[0].weekday, startTime: gaps[0].startTime, endTime: gaps[0].endTime }, title });
+    if (gaps[1]) await app.setGapStatus.execute({ userId, gap: { weekday: gaps[1].weekday, startTime: gaps[1].startTime, endTime: gaps[1].endTime }, status: 'OCCUPIED' });
   }
 
   // 6. Notificaciones ya recibidas (algunas leídas) para que la campana tenga contenido

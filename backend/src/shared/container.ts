@@ -13,7 +13,7 @@ import { GetProfileUseCase, UpdatePreferencesUseCase, UpdateProfileUseCase } fro
 import { ResendVerificationUseCase, VerifyAccountUseCase } from '../modules/auth/application/VerifyAccount';
 import { OtpCodec, OtpMailer, OtpRepository, RefreshTokenRepository } from '../modules/auth/application/ports';
 import { CatalogRepository, CreateFacultyUseCase, CreateProgramUseCase, DeleteProgramUseCase, ListCatalogUseCase, UpdateProgramUseCase } from '../modules/catalog/application/CatalogUseCases';
-import { AssignActivityUseCase, GapService, ListGapsUseCase, RemoveActivityUseCase, SetGapStatusUseCase } from '../modules/gaps/application/GapUseCases';
+import { CreateActivityUseCase, GapService, ListActivitiesUseCase, ListGapsUseCase, RemoveActivityUseCase, SetGapStatusUseCase, UpdateActivityUseCase } from '../modules/gaps/application/GapUseCases';
 import { GapRepository } from '../modules/gaps/application/ports';
 import { CancelScheduledUseCase, CreateCustomNotificationUseCase, ListScheduledUseCase } from '../modules/notifications/application/ScheduledNotifications';
 import { ScheduledNotificationRepository } from '../modules/notifications/application/ports';
@@ -121,7 +121,9 @@ export function buildContainer(p: Ports, cfg: Config) {
     listUsers: new ListUsersUseCase(p.users),
     changeRole,
     listGaps: new ListGapsUseCase(gapService),
-    assignActivity: new AssignActivityUseCase(gapService),
+    listActivities: new ListActivitiesUseCase(gapService),
+    createActivity: new CreateActivityUseCase(gapService),
+    updateActivity: new UpdateActivityUseCase(gapService),
     removeActivity: new RemoveActivityUseCase(gapService),
     setGapStatus: new SetGapStatusUseCase(gapService),
     createCustomNotification: new CreateCustomNotificationUseCase(p.scheduled, p.schedules),

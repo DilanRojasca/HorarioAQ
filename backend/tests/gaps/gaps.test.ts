@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { detectGaps } from '../../src/modules/gaps/domain/gaps';
 import { suggestFor } from '../../src/modules/gaps/domain/suggestions';
-import { AssignActivityUseCase, GapService, ListGapsUseCase, RemoveActivityUseCase, SetGapStatusUseCase } from '../../src/modules/gaps/application/GapUseCases';
+import { CreateActivityUseCase, GapService, ListActivitiesUseCase, ListGapsUseCase, RemoveActivityUseCase, SetGapStatusUseCase, UpdateActivityUseCase } from '../../src/modules/gaps/application/GapUseCases';
 import { InMemoryEnrollmentRepo, InMemoryGaps, InMemoryScheduleRepo, session } from '../helpers/inMemory';
 
 const s = (startTime: string, endTime: string, weekday = 1, over = {}) =>
@@ -54,12 +54,24 @@ describe('Casos de uso de huecos (RF-HUE-03/04)', () => {
     expect(g).toMatchObject({ ...key, minutes: 60, status: 'AVAILABLE', activity: null, suggestion: { kind: 'MEAL' } });
     expect(await new ListGapsUseCase(svc).execute({ userId: 'otro' })).toEqual([]);
   });
-  it('actividad propia reemplaza la sugerencia; se puede quitar', async () => {
-    await new AssignActivityUseCase(svc).execute({ userId: 'u1', gap: key, title: ' Biblioteca ' });
+  it('CRUD de actividades: crear, listar, actualizar y eliminar; la actividad reemplaza la sugerencia', async () => {
+    const created = await new CreateActivityUseCase(svc).execute({ userId: 'u1', gap: key, title: ' Biblioteca ' });
+    expect(created).toMatchObject({ ...key, title: 'Biblioteca' });
+    expect(await new ListActivitiesUseCase(svc).execute({ userId: 'u1' })).toHaveLength(1);
     expect((await svc.list('u1'))[0]).toMatchObject({ activity: { title: 'Biblioteca' }, suggestion: null });
+    expect(await new UpdateActivityUseCase(svc).execute({ userId: 'u1', gap: key, title: 'Gimnasio' })).toMatchObject({ title: 'Gimnasio' });
     await new RemoveActivityUseCase(svc).execute({ userId: 'u1', gap: key });
     expect((await svc.list('u1'))[0].suggestion).not.toBeNull();
     await expect(new RemoveActivityUseCase(svc).execute({ userId: 'u1', gap: key })).rejects.toMatchObject({ status: 404 });
+    await expect(new UpdateActivityUseCase(svc).execute({ userId: 'u1', gap: key, title: 'x' })).rejects.toMatchObject({ status: 404 });
+  });
+  it('regla de negocio: un hueco con actividad no admite otra (409) y uno ocupado tampoco (409)', async () => {
+    const create = new CreateActivityUseCase(svc);
+    await create.execute({ userId: 'u1', gap: key, title: 'Uno' });
+    await expect(create.execute({ userId: 'u1', gap: key, title: 'Dos' })).rejects.toMatchObject({ status: 409, message: /ya tiene una actividad/ });
+    await new RemoveActivityUseCase(svc).execute({ userId: 'u1', gap: key });
+    await new SetGapStatusUseCase(svc).execute({ userId: 'u1', gap: key, status: 'OCCUPIED' });
+    await expect(create.execute({ userId: 'u1', gap: key, title: 'Tres' })).rejects.toMatchObject({ status: 409, message: /ocupado/ });
   });
   it('marcar OCUPADO quita las sugerencias; volver a DISPONIBLE las devuelve', async () => {
     await new SetGapStatusUseCase(svc).execute({ userId: 'u1', gap: key, status: 'OCCUPIED' });
@@ -69,8 +81,8 @@ describe('Casos de uso de huecos (RF-HUE-03/04)', () => {
   });
   it('rechaza huecos inexistentes y títulos inválidos', async () => {
     const fake = { weekday: 2 as const, startTime: '10:00', endTime: '11:00' };
-    await expect(new AssignActivityUseCase(svc).execute({ userId: 'u1', gap: fake, title: 'x' })).rejects.toMatchObject({ status: 404 });
+    await expect(new CreateActivityUseCase(svc).execute({ userId: 'u1', gap: fake, title: 'x' })).rejects.toMatchObject({ status: 404 });
     await expect(new SetGapStatusUseCase(svc).execute({ userId: 'u1', gap: fake, status: 'OCCUPIED' })).rejects.toMatchObject({ status: 404 });
-    await expect(new AssignActivityUseCase(svc).execute({ userId: 'u1', gap: key, title: '  ' })).rejects.toMatchObject({ status: 400 });
+    await expect(new CreateActivityUseCase(svc).execute({ userId: 'u1', gap: key, title: '  ' })).rejects.toMatchObject({ status: 400 });
   });
 });

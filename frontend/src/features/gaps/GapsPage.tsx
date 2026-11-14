@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { card } from '../../shared/ui';
 import { Button, ErrorNotice, fieldInput, Switch } from '../../shared/forms';
 import { WEEKDAYS } from '../schedule/filter';
-import { assignActivity, listGaps, removeActivity, setGapStatus } from './api';
+import { createActivity, listGaps, removeActivity, setGapStatus, updateActivity } from './api';
 import type { Gap, GapKey } from './api';
 
 const SUGGESTION_ICON = { REST: 'free_cancellation', MEAL: 'event', STUDY: 'school' } as const;
@@ -32,7 +32,7 @@ export default function GapsPage() {
     e.preventDefault();
     const title = (drafts[idOf(g)] ?? '').trim();
     if (!title) return;
-    void run(async () => { await assignActivity(keyOf(g), title); setDrafts((d) => ({ ...d, [idOf(g)]: '' })); });
+    void run(async () => { await (g.activity ? updateActivity : createActivity)(keyOf(g), title); setDrafts((d) => ({ ...d, [idOf(g)]: '' })); });
   };
 
   const days = gaps ? [...new Set(gaps.map((g) => g.weekday))].sort() : [];
@@ -78,10 +78,10 @@ export default function GapsPage() {
 
                   <form onSubmit={save(g)} className="flex gap-2">
                     <input
-                      aria-label={`Actividad propia para ${g.startTime}–${g.endTime}`} placeholder="Tu propia actividad" maxLength={80}
+                      aria-label={`Actividad propia para ${g.startTime}–${g.endTime}`} placeholder={g.activity ? 'Cambiar el nombre de la actividad' : 'Tu propia actividad'} maxLength={80} disabled={occupied}
                       value={drafts[id] ?? ''} onChange={(e) => setDrafts((x) => ({ ...x, [id]: e.target.value }))} className={fieldInput}
                     />
-                    <Button type="submit" variant="secondary" disabled={!(drafts[id] ?? '').trim()}>Asignar</Button>
+                    <Button type="submit" variant="secondary" disabled={occupied || !(drafts[id] ?? '').trim()}>{g.activity ? 'Actualizar' : 'Asignar'}</Button>
                   </form>
 
                   <Switch

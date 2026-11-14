@@ -96,18 +96,31 @@ describe('Horario: búsqueda y filtros (RF-BUS-01/02)', () => {
 });
 
 describe('Huecos (RF-HUE-01..04)', () => {
-  it('lista, asigna actividad y marca ocupado; el admin no tiene acceso', async () => {
+  it('CRUD de actividades con códigos HTTP correctos y regla de negocio (409); el admin no tiene acceso', async () => {
     const t = (await login('u1@x.co')).token;
-    const [gap] = (await request(app).get('/api/v1/gaps').set(bearer(t))).body;
-    expect(gap).toMatchObject({ weekday: 1, startTime: '10:00', endTime: '11:00', minutes: 60, suggestion: { kind: 'MEAL' } });
     const key = { weekday: 1, startTime: '10:00', endTime: '11:00' };
-    expect((await request(app).put('/api/v1/gaps/activity').set(bearer(t)).send({ ...key, title: 'Biblioteca' })).status).toBe(200);
-    expect((await request(app).get('/api/v1/gaps').set(bearer(t))).body[0]).toMatchObject({ activity: { title: 'Biblioteca' }, suggestion: null });
+    const [gap] = (await request(app).get('/api/v1/gaps').set(bearer(t))).body;
+    expect(gap).toMatchObject({ ...key, minutes: 60, suggestion: { kind: 'MEAL' } });
+
+    const created = await request(app).post('/api/v1/gaps/activities').set(bearer(t)).send({ ...key, title: 'Biblioteca' });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ ...key, title: 'Biblioteca' });
+    expect((await request(app).post('/api/v1/gaps/activities').set(bearer(t)).send({ ...key, title: 'Otra' })).status).toBe(409);  // ya existe
+    expect((await request(app).post('/api/v1/gaps/activities').set(bearer(t)).send({ ...key, startTime: '10:05', title: 'x' })).status).toBe(404); // hueco inexistente
+    expect((await request(app).post('/api/v1/gaps/activities').set(bearer(t)).send({ ...key, title: '' })).status).toBe(400);       // validación
+    expect((await request(app).get('/api/v1/gaps/activities').set(bearer(t))).body).toHaveLength(1);
+    expect((await request(app).put('/api/v1/gaps/activities').set(bearer(t)).send({ ...key, title: 'Gimnasio' })).body.title).toBe('Gimnasio');
+    expect((await request(app).get('/api/v1/gaps').set(bearer(t))).body[0]).toMatchObject({ activity: { title: 'Gimnasio' }, suggestion: null });
+
+    expect((await request(app).delete('/api/v1/gaps/activities').set(bearer(t)).send(key)).status).toBe(204);
+    expect((await request(app).delete('/api/v1/gaps/activities').set(bearer(t)).send(key)).status).toBe(404);
     expect((await request(app).put('/api/v1/gaps/status').set(bearer(t)).send({ ...key, status: 'OCCUPIED' })).status).toBe(204);
+    expect((await request(app).post('/api/v1/gaps/activities').set(bearer(t)).send({ ...key, title: 'Nueva' })).status).toBe(409);  // hueco ocupado
     expect((await request(app).put('/api/v1/gaps/status').set(bearer(t)).send({ ...key, startTime: '10:05', status: 'OCCUPIED' })).status).toBe(404);
-    expect((await request(app).delete('/api/v1/gaps/activity').set(bearer(t)).send(key)).status).toBe(204);
+
+    expect((await request(app).get('/api/v1/gaps')).status).toBe(401);                       // sin token
     const a = (await login('admin@x.co')).token;
-    expect((await request(app).get('/api/v1/gaps').set(bearer(a))).status).toBe(403);
+    expect((await request(app).get('/api/v1/gaps').set(bearer(a))).status).toBe(403);       // rol sin permiso
   });
 });
 
