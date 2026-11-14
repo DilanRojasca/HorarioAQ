@@ -7,7 +7,7 @@ atributos de calidad del SRS y la trazabilidad requisito → código → prueba.
 > Cada carpeta importante tiene además su propio `README.md` que explica **qué patrón se usa allí y por qué**.
 > Empieza por el de la carpeta que estés leyendo: [backend/src](../backend/src/README.md) · [frontend/src](../frontend/src/README.md).
 
-> **¿Buscas la línea exacta de cada patrón?** → [PATRONES.md](PATRONES.md) (archivo:línea, por qué se usa ahí y cómo extenderlo).
+> **¿Buscas la línea exacta de cada patrón?** → [PATRONES.md](PATRONES.md) (por qué se usa ahí y cómo extenderlo) e [INDICE_PATRONES.md](INDICE_PATRONES.md) (generado: archivo y línea actuales de cada marca `@pattern`).
 
 ## 1. Estilo arquitectónico
 
@@ -278,7 +278,28 @@ hueco esté ocupado o tenga actividad propia.
 | 6 | Filtro de horario duplicado en cliente (réplica de la Specification) | Una petición por tecla | Respuesta instantánea; el servidor admite los mismos filtros para otros clientes. |
 | 7 | Reclamos atómicos en BD | Bloqueos distribuidos | Funciona con varias réplicas sin infraestructura extra. |
 
-## 10. Cómo extender
+## 10. API versionada y documentación OpenAPI (Swagger)
+
+| Tema | Decisión | Dónde |
+|---|---|---|
+| **Versionado** | Por URL: todo cuelga de `/api/v1`. Un cambio incompatible irá a `/api/v2` sin tocar v1. Las rutas sin versión (`/api/...`) siguen respondiendo pero marcadas como obsoletas (`Deprecation: true` y `Link: …; rel="successor-version"`). | `shared/http/v1.ts`, `shared/http/app.ts` |
+| **Documentación** | OpenAPI 3.0.3 generado desde los **mismos esquemas zod** que validan las rutas: no puede divergir. Swagger UI en `/api/v1/docs`, contrato en `/api/v1/openapi.json`. | `shared/openapi/` |
+| **Antideriva** | Un test compara las rutas reales de Express con las documentadas: falla si hay una ruta sin documentar o documentación huérfana, y valida el documento con `swagger-parser`. | `tests/openapi/openapi.test.ts` |
+| **Seguridad** | Esquema `bearerAuth` (JWT); cada operación indica su rol (`STUDENT`/`ADMIN`) y los endpoints públicos están acotados por un test. | `shared/openapi/registry.ts` |
+| **Errores** | Un solo formato `{ code, message, issues?, requestId }` documentado como `ErrorResponse`, con respuestas reutilizables (400, 401, 403, 404, 409, 413, 429). | `shared/http/errorHandler.ts` |
+| **Trazabilidad por petición** | `X-Request-Id` (se respeta el del cliente si es seguro o se genera) en la respuesta y en todo error. | `shared/http/requestContext.ts` |
+| **Privacidad** | `Cache-Control: no-store` en la API (datos personales). | `shared/http/requestContext.ts` |
+| **Códigos HTTP** | `201` al crear, `204` sin contenido, `409` conflicto, `429` límite de solicitudes. | rutas de cada módulo |
+
+Para añadir un endpoint: crear la ruta, exportar su esquema zod desde el `schemas.ts` del módulo y registrarlo con `op({...})` en `shared/openapi/paths.ts`; si se olvida, el test falla.
+
+## 11. Cómo encontrar los patrones en el código
+
+Cada clase, función o interfaz que implementa un patrón lleva en su JSDoc `@pattern <Patrón> | <Rol> | <Por qué>`. El script `scripts/patterns-index.mjs`
+(`npm run patterns` en `backend/`) genera `docs/INDICE_PATRONES.md` con el archivo y la línea actuales de las marcas, y un test garantiza que cada patrón declarado
+siga marcado en el código.
+
+## 12. Cómo extender
 
 | Quiero… | Hago… |
 |---|---|

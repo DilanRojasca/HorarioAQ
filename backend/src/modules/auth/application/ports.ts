@@ -25,7 +25,11 @@ export interface NewUser {
   name: string; email: string; passwordHash: string; documentType: string; documentNumber: string;
 }
 
-/** PATRÓN Repository: el dominio/casos de uso no saben si hay Prisma, memoria u otra cosa detrás. */
+/**
+ * PATRÓN Repository: el dominio/casos de uso no saben si hay Prisma, memoria u otra cosa detrás.
+ *
+ * @pattern Repository | Puerto de usuarios | El caso de uso pide guardar/leer con vocabulario del negocio sin saber si hay SQL detrás.
+ */
 export interface UserRepository {
   findByEmail(email: string): Promise<User | null>;
   findById(id: string): Promise<User | null>;
@@ -46,7 +50,11 @@ export interface UserRepository {
 export type OtpPurpose = 'VERIFY' | 'RESET';
 export interface OtpRecord { id: string; userId: string; purpose: OtpPurpose; codeHash: string; expiresAt: Date; attempts: number }
 
-/** Puerto de persistencia de OTP (RF-AUTH-04/05). */
+/**
+ * Puerto de persistencia de OTP (RF-AUTH-04/05).
+ *
+ * @pattern Repository | Puerto de códigos OTP | El caso de uso pide guardar/leer con vocabulario del negocio sin saber si hay SQL detrás.
+ */
 export interface OtpRepository {
   /** Guarda un OTP nuevo e invalida los anteriores sin usar del mismo propósito. */
   create(o: { userId: string; purpose: OtpPurpose; codeHash: string; expiresAt: Date }): Promise<void>;
@@ -57,17 +65,26 @@ export interface OtpRepository {
   markUsed(id: string, at: Date): Promise<boolean>;
 }
 
-/** Puerto del generador/codificador de OTP (permite códigos fijos en pruebas). */
+/**
+ * Puerto del generador/codificador de OTP (permite códigos fijos en pruebas).
+ *
+ * @pattern Hexagonal (puerto) | Puerto: generación/hash de OTP | El núcleo define qué necesita; un adaptador lo implementa. El núcleo nunca importa el adaptador.
+ */
 export interface OtpCodec {
   generate(): string;
   hash(code: string, salt: string): string;
 }
 
-/** Puerto de salida: entrega del OTP al correo institucional. */
+/**
+ * Puerto de salida: entrega del OTP al correo institucional.
+ *
+ * @pattern Hexagonal (puerto) | Puerto: entrega del OTP | El núcleo define qué necesita; un adaptador lo implementa. El núcleo nunca importa el adaptador.
+ */
 export interface OtpMailer {
   sendOtp(to: { email: string; name: string }, code: string, purpose: OtpPurpose): Promise<void>;
 }
 
+/** @pattern Repository | Puerto de refresh tokens | El caso de uso pide guardar/leer con vocabulario del negocio sin saber si hay SQL detrás. */
 export interface RefreshTokenRepository {
   create(r: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void>;
   /** Revoca y devuelve el dueño si el token existe, no está revocado ni vencido (uso único: rotación). */
@@ -75,6 +92,7 @@ export interface RefreshTokenRepository {
   revokeByHash(tokenHash: string): Promise<void>;
   revokeAllForUser(userId: string): Promise<void>;
 }
+/** @pattern Hexagonal (puerto) | Puerto: hash de contraseñas | El núcleo define qué necesita; un adaptador lo implementa. El núcleo nunca importa el adaptador. */
 export interface PasswordHasher {
   hash(plain: string): Promise<string>;
   verify(hash: string, plain: string): Promise<boolean>;
@@ -85,10 +103,12 @@ export interface TokenPayload {
   jti: string;
   exp: number;
 }
+/** @pattern Hexagonal (puerto) | Puerto: tokens de sesión | El núcleo define qué necesita; un adaptador lo implementa. El núcleo nunca importa el adaptador. */
 export interface TokenService {
   sign(user: { id: string; role: Role }): string;
   verify(token: string): TokenPayload; // lanza unauthorized si es inválido/expirado
 }
+/** @pattern Repository | Puerto de tokens revocados | El caso de uso pide guardar/leer con vocabulario del negocio sin saber si hay SQL detrás. */
 export interface RevokedTokenRepository {
   revoke(jti: string, expiresAt: Date): Promise<void>;
   isRevoked(jti: string): Promise<boolean>;

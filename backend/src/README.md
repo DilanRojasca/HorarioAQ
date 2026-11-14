@@ -15,6 +15,28 @@ src/
 └── jobs/            ← disparadores periódicos (cron) que llaman a casos de uso
 ```
 
+## Cómo encontrar un patrón
+
+La función, clase o interfaz que **implementa** un patrón lleva en su JSDoc la etiqueta `@pattern <Patrón> | <Rol> | <Por qué>`:
+
+```ts
+/**
+ * ...
+ * @pattern Observer | Subject (el bus) | Publica eventos sin conocer a quién los escucha.
+ */
+export class EventBus { ... }
+```
+
+```bash
+grep -rn "@pattern Strategy" backend/src frontend/src     # todas las estrategias
+cd backend && npm run patterns                             # regenera docs/INDICE_PATRONES.md (archivo:línea de cada marca)
+```
+
+## API v1 y Swagger
+
+* Todas las rutas viven bajo `/api/v1` ([`shared/http/v1.ts`](shared/http/v1.ts)). Swagger UI: **`/api/v1/docs`**; contrato: `/api/v1/openapi.json`.
+* La documentación se genera de los mismos esquemas zod que validan las peticiones (`modules/*/http/schemas.ts` → [`shared/openapi/paths.ts`](shared/openapi/paths.ts)); un test impide que diverja de las rutas reales.
+
 ## Regla de dependencia (la más importante)
 
 ```

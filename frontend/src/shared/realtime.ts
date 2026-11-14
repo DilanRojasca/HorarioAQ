@@ -26,10 +26,12 @@ const defaultSleep = (ms: number, signal?: AbortSignal) =>
 
 /**
  * Cliente de tiempo real: patrón Observer en el navegador.
- * El Sujeto es el flujo SSE de `/api/events/stream`; los observadores son quienes llaman a
+ * El Sujeto es el flujo SSE de `/api/v1/events/stream`; los observadores son quienes llaman a
  * `subscribe(tipo, manejador)` y reciben los eventos con nombre (`notification`, `schedule-changed`…).
  * Usa `fetch` en streaming (no `EventSource`) para enviar el token solo en la cabecera
  * `Authorization`, nunca en la URL, y reconecta con espera exponencial (1 s → 30 s).
+ *
+ * @pattern Observer | Subject en el navegador | Mantiene el flujo SSE y reparte los eventos a quien llamó a subscribe().
  */
 export class RealtimeClient implements RealtimeSource {
   status: RealtimeStatus = 'idle';
@@ -44,7 +46,7 @@ export class RealtimeClient implements RealtimeSource {
   private controller: AbortController | null = null;
 
   constructor(opts: RealtimeOptions) {
-    this.url = opts.url ?? '/api/events/stream';
+    this.url = opts.url ?? '/api/v1/events/stream';
     this.getToken = opts.getToken;
     this.fetchFn = opts.fetchFn ?? ((...args) => fetch(...args));
     this.initialMs = opts.backoff?.initialMs ?? 1000;

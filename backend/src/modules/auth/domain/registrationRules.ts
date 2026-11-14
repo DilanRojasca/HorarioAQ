@@ -17,7 +17,11 @@ export interface RegistrationData {
   password: string;
 }
 
-/** Eslabón de la cadena: devuelve un mensaje de error o `null` si el dato es válido. */
+/**
+ * Eslabón de la cadena: devuelve un mensaje de error o `null` si el dato es válido.
+ *
+ * @pattern Chain of Responsibility | Contrato del eslabón | Cada regla de registro valida una sola cosa.
+ */
 export interface RegistrationRule {
   readonly id: string;
   check(data: RegistrationData): string | null;
@@ -26,18 +30,21 @@ export interface RegistrationRule {
 export const INSTITUTIONAL_DOMAIN = '@amigo.edu.co';
 export const DOCUMENT_TYPES = ['CC', 'TI', 'CE', 'PASAPORTE'] as const;
 
+/** @pattern Chain of Responsibility | Eslabón: correo institucional | RRF-06: solo se acepta el dominio @amigo.edu.co, sin permitir correos externos. */
 export const institutionalEmailRule: RegistrationRule = {
   id: 'institutional-email',
   check: ({ email }) => (email.trim().toLowerCase().endsWith(INSTITUTIONAL_DOMAIN) && email.trim().length > INSTITUTIONAL_DOMAIN.length
     ? null : `Usa tu correo institucional (${INSTITUTIONAL_DOMAIN})`),
 };
 
+/** @pattern Chain of Responsibility | Eslabón: nombre completo | Exige al menos nombre y apellido; no conoce las demás reglas. */
 export const fullNameRule: RegistrationRule = {
   id: 'full-name',
   check: ({ name }) => (name.trim().split(/\s+/).filter(Boolean).length >= 2 && name.trim().length <= 120
     ? null : 'Ingresa tu nombre completo (nombre y apellido)'),
 };
 
+/** @pattern Chain of Responsibility | Eslabón: documento | Comprueba que el tipo de documento exista y el número tenga formato válido. */
 export const documentRule: RegistrationRule = {
   id: 'document',
   check: ({ documentType, documentNumber }) => {
@@ -46,6 +53,7 @@ export const documentRule: RegistrationRule = {
   },
 };
 
+/** @pattern Chain of Responsibility | Eslabón: contraseña fuerte | Aplica la política de contraseña (8+, mayúsculas, minúsculas y número). */
 export const passwordStrengthRule: RegistrationRule = {
   id: 'password-strength',
   check: ({ password }) => passwordProblem(password),
@@ -59,11 +67,16 @@ export function passwordProblem(password: string): string | null {
   return null;
 }
 
-/** La cadena por defecto, en orden de presentación. */
+/**
+ * La cadena por defecto, en orden de presentación.
+ *
+ * @pattern Chain of Responsibility | Cadena por defecto | Una validación nueva es un eslabón nuevo en esta lista.
+ */
 export const DEFAULT_REGISTRATION_CHAIN: RegistrationRule[] = [
   fullNameRule, documentRule, institutionalEmailRule, passwordStrengthRule,
 ];
 
+/** @pattern Chain of Responsibility | Recorrido de la cadena | Variante «validar todo»: junta todos los errores a la vez. */
 export function runRegistrationChain(data: RegistrationData, chain: RegistrationRule[] = DEFAULT_REGISTRATION_CHAIN): string[] {
   return chain.map((rule) => rule.check(data)).filter((m): m is string => m !== null);
 }

@@ -5,6 +5,7 @@ import { MAX_EMAIL_ATTEMPTS, NotificationRecord, NotificationRepository } from '
 type Row = Omit<NotificationRecord, 'kind'> & { kind: string };
 const toRecord = (r: Row): NotificationRecord => ({ ...r, kind: r.kind as NotificationKind });
 
+/** @pattern Repository | Implementación con Prisma/PostgreSQL | Adaptador de salida del puerto; en las pruebas lo reemplaza una versión InMemory. */
 export class PrismaNotificationRepository implements NotificationRepository {
   async create(n: { userId: string; kind: NotificationKind; title: string; message: string }) {
     return toRecord(await prisma.notification.create({ data: n }));
@@ -40,6 +41,7 @@ export class PrismaNotificationRepository implements NotificationRepository {
     return r ? toRecord(r) : null;
   }
 
+  /** @pattern Consumidor idempotente | Reclamo atómico del correo | UPDATE … WHERE emailedAt IS NULL: solo gana una entrega, no hay correos duplicados. */
   async claimEmail(id: string, at: Date) {
     const r = await prisma.notification.updateMany({
       where: { id, emailedAt: null, emailSkippedAt: null },

@@ -2,7 +2,11 @@ import { EventBus } from '../../../shared/events/EventBus';
 import { Subscription } from '../../../shared/events/types';
 import { SyncRunRepository } from '../application/ports';
 
-/** Observador de estadísticas: guarda en la corrida el desglose de cambios de cada SyncCompleted. */
+/**
+ * Observador de estadísticas: guarda en la corrida el desglose de cambios de cada SyncCompleted.
+ *
+ * @pattern Observer | Observador concreto: sync-stats | Guarda el desglose de cada corrida al llegar SyncCompleted.
+ */
 export function registerSyncStatsObserver(bus: EventBus, syncRuns: SyncRunRepository): Subscription[] {
   return [
     bus.subscribe('SyncCompleted', async (e) => {

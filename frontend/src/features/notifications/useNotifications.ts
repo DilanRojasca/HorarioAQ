@@ -11,7 +11,11 @@ interface LivePayload { id: string; title: string; message: string; kind: string
 const isLive = (d: unknown): d is LivePayload =>
   typeof d === 'object' && d !== null && typeof (d as LivePayload).id === 'string' && typeof (d as LivePayload).title === 'string';
 
-/** Estado de las notificaciones del usuario: carga inicial, eventos `notification` en vivo y marcado como leídas. */
+/**
+ * Estado de las notificaciones del usuario: carga inicial, eventos `notification` en vivo y marcado como leídas.
+ *
+ * @pattern Custom Hook | Datos de notificaciones | Separa la obtención de datos de la presentación.
+ */
 export function useNotifications() {
   const [data, setData] = useState<Data>({ items: [], unread: 0 });
   const [loading, setLoading] = useState(true);

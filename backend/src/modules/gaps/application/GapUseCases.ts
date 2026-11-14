@@ -15,6 +15,8 @@ export interface GapView extends Gap {
 /**
  * Casos de uso de huecos (RF-HUE-01..04). Comparten `GapService` (PATRÓN Facade interno): una sola
  * clase que combina horario + repositorio de huecos + dominio puro.
+ *
+ * @pattern Facade | Fachada interna de huecos | Combina horario, repositorio y dominio para que los casos de uso sean de una línea.
  */
 export class GapService {
   constructor(

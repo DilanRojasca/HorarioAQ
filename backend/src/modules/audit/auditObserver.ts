@@ -2,7 +2,11 @@ import { EventBus } from '../../shared/events/EventBus';
 import { Subscription } from '../../shared/events/types';
 import { AuditPort } from '../../shared/ports';
 
-/** Observador de auditoría: registra cada ScheduleChanged con la máxima prioridad. */
+/**
+ * Observador de auditoría: registra cada ScheduleChanged con la máxima prioridad.
+ *
+ * @pattern Observer | Observador concreto: audit | Registra cada ScheduleChanged (prioridad 100, el primero en ejecutarse).
+ */
 export function registerAuditObserver(bus: EventBus, audit: AuditPort): Subscription[] {
   return [
     bus.subscribe('ScheduleChanged', async (e) => {

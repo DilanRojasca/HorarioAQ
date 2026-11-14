@@ -10,6 +10,8 @@ export interface RegisterResult { email: string; verificationRequired: true }
 /**
  * RF-AUTH-01 + RF-AUTH-05. Orquesta: cadena de validación → unicidad → hash (argon2) → cuenta INACTIVA
  * → OTP de verificación por correo. (PATRÓN Facade: el controlador llama a un único método.)
+ *
+ * @pattern Facade | Fachada del registro | Orquesta cadena de validación, unicidad, hash, cuenta inactiva y OTP.
  */
 export class RegisterUseCase implements UseCase<RegisterInput, RegisterResult> {
   constructor(private users: UserRepository, private hasher: PasswordHasher, private otp: OtpService) {}

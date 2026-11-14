@@ -1,26 +1,9 @@
 import { Router } from 'express';
-import { z } from 'zod';
 import { Container } from '../../../shared/container';
 import { notFound } from '../../../shared/errors';
 import { asyncHandler } from '../../../shared/http/asyncHandler';
 import { authenticate } from '../../../shared/http/auth';
-
-const uuid = z.string().uuid('Identificador inválido');
-const listQuery = z.object({
-  unread: z.enum(['1', '0', 'true', 'false']).optional(),
-  limit: z.coerce.number({ invalid_type_error: 'limit inválido' }).int('limit debe ser entero')
-    .min(1, 'limit mínimo 1').max(100, 'limit máximo 100').default(30),
-});
-
-const scheduleBody = z.object({
-  title: z.string(), message: z.string(),
-  fireAt: z.coerce.date({ errorMap: () => ({ message: 'Fecha y hora inválidas' }) }),
-  sessionExternalId: z.string().max(120).optional(),
-}).strict();
-const prefsBody = z.object({
-  notifyChannel: z.enum(['IN_APP', 'EMAIL', 'BOTH']).optional(),
-  reminderMinutes: z.number().int().optional(),
-}).strict();
+import { listQuery, prefsBody, scheduleBody, uuid } from './schemas';
 
 export function notificationRoutes(c: Container) {
   const r = Router();

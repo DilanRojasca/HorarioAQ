@@ -1,4 +1,4 @@
-const BASE = '/api';
+const BASE = '/api/v1'; // versión 1 de la API (ver /api/v1/docs)
 const KEY = 'horario_token';
 
 export class ApiError extends Error {
@@ -27,6 +27,7 @@ export const getRefreshToken = () => refreshToken;
 // RNF-05: si el token de acceso expiró, se rota el refresh token UNA vez (single-flight: las peticiones
 // concurrentes comparten el mismo intento) y se reintenta la petición original.
 let refreshing: Promise<boolean> | null = null;
+/** @pattern Proxy | Refresh single-flight | Las peticiones concurrentes comparten UN solo intento de refresh. */
 function tryRefresh(): Promise<boolean> {
   if (!refreshToken) return Promise.resolve(false);
   refreshing ??= (async () => {
@@ -44,6 +45,7 @@ function tryRefresh(): Promise<boolean> {
   return refreshing;
 }
 
+/** @pattern Proxy | Interceptor del cliente HTTP | Ante un 401 rota el refresh token y reintenta; las pantallas no se enteran. */
 async function raw(path: string, init: RequestInit = {}, retried = false): Promise<Response> {
   const res = await fetch(BASE + path, {
     ...init,

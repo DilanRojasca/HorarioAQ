@@ -1,6 +1,7 @@
 import { prisma } from '../../../shared/prisma';
 import { CatalogRepository } from '../application/CatalogUseCases';
 
+/** @pattern Repository | Implementación con Prisma/PostgreSQL | Adaptador de salida del puerto; en las pruebas lo reemplaza una versión InMemory. */
 export class PrismaCatalogRepository implements CatalogRepository {
   listFaculties() {
     return prisma.faculty.findMany({ orderBy: { name: 'asc' }, include: { programs: { orderBy: { name: 'asc' } } } });

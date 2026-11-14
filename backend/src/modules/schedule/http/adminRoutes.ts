@@ -5,15 +5,7 @@ import { notFound } from '../../../shared/errors';
 import { Container } from '../../../shared/container';
 import { asyncHandler } from '../../../shared/http/asyncHandler';
 import { authenticate, requireRole } from '../../../shared/http/auth';
-
-const eventsQuery = z.object({
-  limit: z.coerce.number({ invalid_type_error: 'limit inválido' }).int('limit inválido').min(1, 'limit mínimo 1').max(100, 'limit máximo 100').default(20),
-});
-
-const testEventBody = z.object({
-  kind: z.enum(['ADDED', 'UPDATED', 'CANCELLED']).default('ADDED'),
-  userId: z.string().uuid('userId inválido').optional(),
-});
+import { auditQuery, eventsQuery, roleBody, testEventBody, uuid } from './schemas';
 
 /** Cambio de horario ficticio para probar la cadena de observadores sin tocar los horarios reales. */
 function demoChange(userId: string, semester: string, kind: 'ADDED' | 'UPDATED' | 'CANCELLED'): ScheduleChange {
@@ -25,12 +17,6 @@ function demoChange(userId: string, semester: string, kind: 'ADDED' | 'UPDATED' 
   if (kind === 'CANCELLED') return { type: 'CANCELLED', externalId: base.externalId, userId, before: base };
   return { type: 'UPDATED', externalId: base.externalId, userId, before: base, after: { ...base, room: '202', block: 'B', floor: 2, startTime: '10:00', endTime: '12:00' } };
 }
-
-const auditQuery = z.object({
-  limit: z.coerce.number().int().min(1).max(200).default(50),
-  action: z.string().max(60).optional(),
-});
-const roleBody = z.object({ role: z.enum(['STUDENT', 'ADMIN']) }).strict();
 
 export function adminRoutes(c: Container) {
   const r = Router();
@@ -44,7 +30,7 @@ export function adminRoutes(c: Container) {
   // RF-AUTH-07: gestión de roles
   r.get('/users', asyncHandler(async (_req, res) => { res.json(await c.listUsers.execute()); }));
   r.put('/users/:id/role', asyncHandler(async (req, res) => {
-    res.json(await c.changeRole.execute({ actorId: req.auth!.sub, userId: z.string().uuid('Identificador inválido').parse(req.params.id), role: roleBody.parse(req.body).role }));
+    res.json(await c.changeRole.execute({ actorId: req.auth!.sub, userId: uuid.parse(req.params.id), role: roleBody.parse(req.body).role }));
   }));
   // RF-ADM-02: consulta del log de auditoría (con el responsable resuelto a nombre/correo)
   r.get('/audit', asyncHandler(async (req, res) => {

@@ -22,6 +22,7 @@ export function passwordProblem(password: string): string | null {
   return null;
 }
 
+/** @pattern Chain of Responsibility | Réplica en el cliente | Validación en tiempo real; el servidor valida siempre. */
 export function validateRegistration(d: RegistrationData): FieldErrors {
   const e: FieldErrors = {};
   if (d.name.trim().split(/\s+/).filter(Boolean).length < 2) e.name = 'Ingresa nombre y apellido';

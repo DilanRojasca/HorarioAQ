@@ -11,6 +11,7 @@ export interface AuditOptions<I, O> {
   auditFailures?: boolean;
 }
 
+/** @pattern Decorator | Decorador de auditoría | Envuelve cualquier caso de uso y registra quién, qué y cuándo sin modificarlo. */
 export function withAudit<I, O>(
   audit: AuditPort,
   action: string,

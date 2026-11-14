@@ -1,6 +1,7 @@
 import { prisma } from '../../../shared/prisma';
 import { OtpPurpose, OtpRecord, OtpRepository } from '../application/ports';
 
+/** @pattern Repository | Implementación con Prisma/PostgreSQL | Adaptador de salida del puerto; en las pruebas lo reemplaza una versión InMemory. */
 export class PrismaOtpRepository implements OtpRepository {
   async create(o: { userId: string; purpose: OtpPurpose; codeHash: string; expiresAt: Date }) {
     await prisma.$transaction([

@@ -4,6 +4,7 @@ import { unauthorized } from '../../../shared/errors';
 import { Role } from '../../schedule/domain/types';
 import { TokenPayload, TokenService } from '../application/ports';
 
+/** @pattern Adapter | Adaptador de JwtTokenService | Adapta la librería jsonwebtoken a la interfaz TokenService que espera auth. */
 export class JwtTokenService implements TokenService {
   constructor(private secret: string) {}
 

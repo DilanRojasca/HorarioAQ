@@ -10,6 +10,8 @@ const COPY: Record<OtpPurpose, { subject: string; lead: string }> = {
  * PATRÓN Adapter: adapta el puerto de correo del módulo `notifications` (EmailPort) al puerto de
  * auth (OtpMailer). Así `auth` no depende de cómo se envía el correo (consola en desarrollo, Brevo
  * en producción) y el OTP NO pasa por el bus de eventos (que persiste los payloads).
+ *
+ * @pattern Adapter | Adaptador de EmailOtpMailer | Conecta el puerto de correo de notifications con el puerto OtpMailer de auth (módulos desacoplados).
  */
 export class EmailOtpMailer implements OtpMailer {
   constructor(private email: EmailPort) {}

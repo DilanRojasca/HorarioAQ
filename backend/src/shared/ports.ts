@@ -1,3 +1,4 @@
+/** @pattern Command | Contrato de caso de uso | Cada acción del sistema es un objeto con execute(); permite decorarlo, probarlo y reutilizarlo. */
 export interface UseCase<I, O> {
   execute(input: I): Promise<O>;
 }

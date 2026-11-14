@@ -17,6 +17,7 @@ const toData = (s: ClassSession) => ({
 
 const json = (v?: ClassSession) => (v ? (v as unknown as Prisma.InputJsonValue) : Prisma.JsonNull);
 
+/** @pattern Repository | Implementación con Prisma/PostgreSQL | Adaptador de salida del puerto; en las pruebas lo reemplaza una versión InMemory. */
 export class PrismaScheduleRepository implements ScheduleRepository {
   async findByUser(userId: string, semester: string) {
     return (await prisma.classSession.findMany({ where: { userId, semester } })).map(toDomain);

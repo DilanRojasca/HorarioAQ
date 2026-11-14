@@ -33,7 +33,7 @@ cover = '''<div class="cover">
 <dl>
 <dt>Integrantes</dt><dd>Dilan Alexander Rojas Carmona<br>Sebastian Velez Guarin</dd>
 <dt>Docente</dt><dd>Javier Cardona</dd>
-<dt>Contenido</dt><dd>Parte 1 — Arquitectura del sistema (estilo, capas, módulos, flujos, calidad, trazabilidad)<br>Parte 2 — Catálogo de patrones: archivo y línea donde nace y donde se usa cada uno, y por qué</dd>
+<dt>Contenido</dt><dd>Parte 1 — Arquitectura del sistema (estilo, capas, módulos, flujos, calidad, trazabilidad)<br>Parte 2 — Catálogo de patrones: dónde nace y dónde se usa cada uno, y por qué<br>Parte 3 — Índice generado desde el código: archivo y línea de cada marca @pattern</dd>
 <dt>Stack</dt><dd>React 18 + Vite · Node 20 + Express + Prisma · PostgreSQL</dd>
 </dl>
 </div>
@@ -44,3 +44,5 @@ print('# Parte 1 — Arquitectura\n')
 print(re.sub(r'^# .*\n', '', body('ARQUITECTURA.md'), count=1))
 print('\n# Parte 2 — Patrones de diseño: dónde y por qué\n')
 print(re.sub(r'^# .*\n', '', body('PATRONES.md'), count=1))
+print('\n# Parte 3 — Índice generado de marcas @pattern\n')
+print(re.sub(r'^# .*\n', '', body('INDICE_PATRONES.md'), count=1))

@@ -8,6 +8,7 @@ import { GetWeeklyScheduleUseCase } from './GetWeeklySchedule';
 export type ExportFormat = 'ics' | 'pdf';
 export interface ExportInput { requesterId: string; requesterRole: Role; format: ExportFormat }
 
+/** @pattern Strategy | Elección del exportador por formato | exporters[format] selecciona PDF o ICS en tiempo de ejecución. */
 export class ExportScheduleUseCase implements UseCase<ExportInput, ExportResult> {
   constructor(
     private weekly: GetWeeklyScheduleUseCase,

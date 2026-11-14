@@ -14,6 +14,7 @@ export const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '
 
 export const isFiltering = (f: ScheduleFilter) => !!(f.q.trim() || f.weekday !== null || f.block || f.teacher);
 
+/** @pattern Specification | Réplica en el cliente | Filtra al instante mientras se escribe, con los mismos criterios que el backend. */
 export function filterSessions(sessions: Session[], f: ScheduleFilter): Session[] {
   const q = normalize(f.q);
   return sessions.filter((s) =>

@@ -53,6 +53,7 @@ export interface Ports {
   exporters: Record<ExportFormat, BaseExporter>;
 }
 
+/** @pattern Dependency Injection | Composition Root | Recibe los puertos ya construidos y devuelve los casos de uso listos. */
 export function buildContainer(p: Ports, cfg: Config) {
   const weekly = new GetWeeklyScheduleUseCase(p.schedules, p.enrollments, cfg.semester);
 

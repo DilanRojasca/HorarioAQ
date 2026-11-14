@@ -60,6 +60,14 @@ Stack: React 18 + Vite (frontend), Node 20 + Express + Prisma + PostgreSQL (back
 | `SSE_HEARTBEAT_MS` | Latido del flujo SSE (ms) | `25000` |
 | `SEED_PASSWORD` | Contraseña de los usuarios **nuevos** del seed (no se modifica la de usuarios existentes). En `NODE_ENV=production` es obligatoria y no puede ser la pública `Cambiar123!` | `Cambiar123!` (solo desarrollo) |
 
+## API y Swagger
+
+* La API está versionada: **`/api/v1`**. Las rutas sin versión (`/api/...`) siguen funcionando pero devuelven `Deprecation: true`.
+* **Swagger UI:** <http://localhost:4000/api/v1/docs> (con el frontend en marcha también en `http://localhost:5173/api/v1/docs`). Contrato OpenAPI: `/api/v1/openapi.json`.
+* Para probar: `POST /auth/login` → botón **Authorize** → pegar el `token`.
+* Todo error responde `{ code, message, issues?, requestId }` y toda respuesta trae `X-Request-Id`.
+* Localizar patrones de diseño en el código: `grep -rn "@pattern Observer" backend/src frontend/src` o [docs/INDICE_PATRONES.md](docs/INDICE_PATRONES.md) (`npm run patterns` en `backend/` lo regenera).
+
 ## Docker
 
 ```bash

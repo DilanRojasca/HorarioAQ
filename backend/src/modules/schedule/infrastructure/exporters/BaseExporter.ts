@@ -8,12 +8,17 @@ export const slug = (s: string) =>
 
 export const DAY_NAMES = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
+/** @pattern Template Method | Clase base | Fija el esqueleto de la exportación; las subclases solo implementan render(). */
 export abstract class BaseExporter {
   protected abstract readonly contentType: string;
   protected abstract readonly extension: string;
   protected abstract render(sessions: ClassSession[], ownerName: string): Promise<Buffer>;
 
-  /** Plantilla: filtra y ordena, delega el render y arma el resultado. */
+  /**
+   * Plantilla: filtra y ordena, delega el render y arma el resultado.
+   *
+   * @pattern Template Method | Método plantilla | Filtra y ordena → render() → arma el nombre del archivo.
+   */
   async export(sessions: ClassSession[], ownerName: string): Promise<ExportResult> {
     const prepared = sortSessions(activeSessions(sessions));
     const body = await this.render(prepared, ownerName);

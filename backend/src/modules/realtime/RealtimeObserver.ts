@@ -18,6 +18,8 @@ export interface RealtimeObserverDeps {
  * - `realtime-schedule`: ScheduleChanged → `schedule-changed`, siempre (no sujeto a la ventana).
  * - `realtime-notification`: NotificationCreated → `notification`, solo dentro de la ventana de
  *   envío (RRF-05) y nunca para re-publicaciones (`replay`), que existen solo para el correo.
+ *
+ * @pattern Observer | Observadores concretos: realtime-* | Empujan ScheduleChanged y NotificationCreated al navegador por SSE.
  */
 export function registerRealtimeObserver(bus: EventBus, hub: SseHub, deps: RealtimeObserverDeps = {}): Subscription[] {
   const { now = () => new Date(), window, users } = deps;

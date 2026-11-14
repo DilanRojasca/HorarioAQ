@@ -4,7 +4,11 @@ import { UseCase } from '../../../shared/ports';
 export interface ProgramRecord { id: string; code: string; name: string; facultyId: string }
 export interface FacultyRecord { id: string; name: string; programs: ProgramRecord[] }
 
-/** PATRÓN Repository del catálogo académico (RF-ADM-01, RRF-03). */
+/**
+ * PATRÓN Repository del catálogo académico (RF-ADM-01, RRF-03).
+ *
+ * @pattern Repository | Puerto de facultades y programas | El caso de uso pide guardar/leer con vocabulario del negocio sin saber si hay SQL detrás.
+ */
 export interface CatalogRepository {
   listFaculties(): Promise<FacultyRecord[]>;
   findFaculty(id: string): Promise<{ id: string; name: string } | null>;

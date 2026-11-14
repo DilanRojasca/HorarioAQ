@@ -1,8 +1,10 @@
 import { prisma } from '../../../shared/prisma';
 import { RefreshTokenRepository } from '../application/ports';
 
+/** @pattern Repository | Implementación con Prisma/PostgreSQL | Adaptador de salida del puerto; en las pruebas lo reemplaza una versión InMemory. */
 export class PrismaRefreshTokenRepository implements RefreshTokenRepository {
   async create(r: { userId: string; tokenHash: string; expiresAt: Date }) { await prisma.refreshToken.create({ data: r }); }
+  /** @pattern Consumidor idempotente | Uso único del refresh token | Solo la primera petición consume el token (rotación). */
   async consume(tokenHash: string, now: Date) {
     const t = await prisma.refreshToken.findUnique({ where: { tokenHash } });
     if (!t || t.revokedAt || t.expiresAt <= now) return null;

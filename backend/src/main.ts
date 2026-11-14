@@ -25,6 +25,7 @@ import { PrismaAuditLog } from './modules/audit/PrismaAuditLog';
 import { buildEmailAdapter } from './modules/notifications/infrastructure/buildEmailAdapter';
 import { PrismaNotificationRepository } from './modules/notifications/infrastructure/PrismaNotificationRepository';
 import { SseHub } from './modules/realtime/SseHub';
+import { DEMO_PLAN_BY_EMAIL } from './modules/schedule/infrastructure/demoPlans';
 import { MockInstitutionalAdapter } from './modules/schedule/infrastructure/MockInstitutionalAdapter';
 import { PrismaEnrollmentRepository } from './modules/schedule/infrastructure/PrismaEnrollmentRepository';
 import { PrismaScheduleRepository } from './modules/schedule/infrastructure/PrismaScheduleRepository';
@@ -32,6 +33,7 @@ import { PrismaSyncRunRepository } from './modules/schedule/infrastructure/Prism
 import { IcsExporter } from './modules/schedule/infrastructure/exporters/IcsExporter';
 import { PdfExporter } from './modules/schedule/infrastructure/exporters/PdfExporter';
 
+/** @pattern Dependency Injection | Ensamblaje con adaptadores reales | Crea Prisma, correo y mock institucional y los inyecta en buildContainer. */
 export function wire() {
   const eventLog = new PrismaEventLog();
   const bus = new EventBus({ log: eventLog });
@@ -47,7 +49,7 @@ export function wire() {
   const container = buildContainer({
     schedules: new PrismaScheduleRepository(),
     enrollments: new PrismaEnrollmentRepository(),
-    institutional: new MockInstitutionalAdapter(syncRuns),
+    institutional: new MockInstitutionalAdapter(syncRuns, { planOf: async (id) => DEMO_PLAN_BY_EMAIL[(await users.findById(id))?.email ?? ''] }),
     syncRuns,
     users,
     revoked: new PrismaRevokedTokenRepository(),

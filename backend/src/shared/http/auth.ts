@@ -8,6 +8,7 @@ declare global {
   namespace Express { interface Request { auth?: TokenPayload } }
 }
 
+/** @pattern Chain of Responsibility | Eslabón: autenticación | Si el token es inválido corta la cadena con 401; los siguientes eslabones no se ejecutan. */
 export const authenticate =
   (tokens: TokenService, revoked: RevokedTokenRepository): RequestHandler =>
   async (req: Request, _res: Response, next: NextFunction) => {
@@ -21,6 +22,7 @@ export const authenticate =
     } catch (e) { next(e); }
   };
 
+/** @pattern Chain of Responsibility | Eslabón: autorización por rol | RBAC (RNF-06): corta con 403 si el rol no alcanza. */
 export const requireRole =
   (...roles: Role[]): RequestHandler =>
   (req, _res, next) => {

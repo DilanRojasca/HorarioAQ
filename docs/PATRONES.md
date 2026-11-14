@@ -8,7 +8,10 @@ Guía línea por línea. Cada patrón tiene la misma ficha:
 * **Por qué aquí**: el problema concreto del proyecto que resuelve y qué pasaría sin el patrón.
 * **Cómo extenderlo**.
 
-> Los números de línea corresponden al estado actual del repositorio. Si el código cambia, busca el nombre del símbolo (por ejemplo `EventBus`) en el archivo indicado.
+> **Cómo encontrar un patrón en el código.** Cada clase, función o interfaz que implementa un patrón lleva en su JSDoc la etiqueta
+> `@pattern <Patrón> | <Rol> | <Por qué>`. Búscala con `grep -rn "@pattern Observer" backend/src frontend/src`, o abre el
+> **[INDICE_PATRONES.md](INDICE_PATRONES.md)**, que se genera solo (`npm run patterns` en `backend/`) con el archivo y la línea **actuales** de cada marca.
+> Los números de línea de esta guía eran correctos al escribirla y pueden desplazarse unas líneas al añadirse etiquetas; el símbolo (p. ej. `EventBus`) y el índice generado son la referencia fiable.
 > Visión general y diagramas: [ARQUITECTURA.md](ARQUITECTURA.md).
 
 ## Índice

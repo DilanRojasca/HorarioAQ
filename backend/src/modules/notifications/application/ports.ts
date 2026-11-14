@@ -24,6 +24,7 @@ export const MAX_EMAIL_DELIVERY_ROUNDS = 5;
 /** Tope de envíos fallidos acumulados (`emailAttempts` suma cada intento del bus): 5 rondas de 4 intentos. */
 export const MAX_EMAIL_ATTEMPTS = MAX_EMAIL_DELIVERY_ROUNDS * ATTEMPTS_PER_DELIVERY;
 
+/** @pattern Repository | Puerto de notificaciones | El caso de uso pide guardar/leer con vocabulario del negocio sin saber si hay SQL detrás. */
 export interface NotificationRepository {
   create(n: { userId: string; kind: NotificationKind; title: string; message: string }): Promise<NotificationRecord>;
   listByUser(userId: string, opts: { unreadOnly?: boolean; limit: number }): Promise<NotificationRecord[]>;
@@ -49,7 +50,11 @@ export interface NotificationRepository {
 
 export interface EmailMessage { to: string; subject: string; text: string; html?: string }
 
-/** Puerto de salida de correo; los adaptadores (consola, Brevo) lo implementan. */
+/**
+ * Puerto de salida de correo; los adaptadores (consola, Brevo) lo implementan.
+ *
+ * @pattern Hexagonal (puerto) | Puerto: correo | El núcleo define qué necesita; un adaptador lo implementa. El núcleo nunca importa el adaptador.
+ */
 export interface EmailPort {
   send(msg: EmailMessage): Promise<void>;
 }
@@ -59,7 +64,11 @@ export interface ScheduledNotificationRecord {
   id: string; userId: string; kind: ScheduledKind; title: string; message: string; fireAt: Date; firedAt: Date | null;
 }
 
-/** PATRÓN Repository para las notificaciones programadas (RF-NOT-01/02). */
+/**
+ * PATRÓN Repository para las notificaciones programadas (RF-NOT-01/02).
+ *
+ * @pattern Repository | Puerto de notificaciones programadas | El caso de uso pide guardar/leer con vocabulario del negocio sin saber si hay SQL detrás.
+ */
 export interface ScheduledNotificationRepository {
   /** `false` si ya existía una con el mismo `dedupKey` (idempotencia de los recordatorios). */
   create(n: { userId: string; kind: ScheduledKind; title: string; message: string; fireAt: Date; dedupKey?: string }): Promise<boolean>;

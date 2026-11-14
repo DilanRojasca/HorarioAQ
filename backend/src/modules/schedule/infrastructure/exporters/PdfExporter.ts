@@ -2,6 +2,7 @@ import PDFDocument from 'pdfkit';
 import { ClassSession } from '../../domain/types';
 import { BaseExporter, DAY_NAMES } from './BaseExporter';
 
+/** @pattern Template Method | Subclase: PDF | Solo implementa el paso render(); el resto del algoritmo lo hereda de BaseExporter. */
 export class PdfExporter extends BaseExporter {
   protected readonly contentType = 'application/pdf';
   protected readonly extension = 'pdf';

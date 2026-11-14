@@ -19,6 +19,7 @@ const readUser = (): AuthUser | null => {
   try { return JSON.parse(sessionStorage.getItem(USER_KEY) ?? 'null'); } catch { return null; }
 };
 
+/** @pattern Provider | Contexto de sesión | Usuario y acciones de sesión disponibles en todo el árbol sin pasar props. */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(readUser);
 

@@ -10,6 +10,8 @@ type EmailConfig = Pick<Config, 'emailMode' | 'brevoApiKey' | 'mailFromEmail' | 
  * Elige el adaptador de correo según `EMAIL_MODE`. Valida la configuración con `assertSafeEmailConfig`
  * (`env` = NODE_ENV), de modo que TODO camino que construya el cableado (servidor, seed, scripts)
  * quede cubierto: fuera de producción, Brevo sin EMAIL_REDIRECT_TO no arranca.
+ *
+ * @pattern Factory | Fábrica de EmailPort | Decide consola o Brevo según la configuración y valida que producción tenga clave.
  */
 export function buildEmailAdapter(cfg: EmailConfig, env: string | undefined): EmailPort {
   assertSafeEmailConfig(cfg, env);

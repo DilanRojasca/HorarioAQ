@@ -3,6 +3,7 @@ import { ScheduledKind, ScheduledNotificationRecord, ScheduledNotificationReposi
 
 const toRecord = (r: { kind: string } & Omit<ScheduledNotificationRecord, 'kind'>): ScheduledNotificationRecord => ({ ...r, kind: r.kind as ScheduledKind });
 
+/** @pattern Repository | Implementación con Prisma/PostgreSQL | Adaptador de salida del puerto; en las pruebas lo reemplaza una versión InMemory. */
 export class PrismaScheduledNotificationRepository implements ScheduledNotificationRepository {
   async create(n: { userId: string; kind: ScheduledKind; title: string; message: string; fireAt: Date; dedupKey?: string }) {
     if (n.dedupKey && (await prisma.scheduledNotification.findUnique({ where: { dedupKey: n.dedupKey } }))) return false;
@@ -20,6 +21,7 @@ export class PrismaScheduledNotificationRepository implements ScheduledNotificat
   async cancel(userId: string, id: string) {
     return (await prisma.scheduledNotification.deleteMany({ where: { id, userId, firedAt: null } })).count === 1;
   }
+  /** @pattern Consumidor idempotente | Reclamo atómico de programadas | Dos réplicas no disparan la misma notificación. */
   async claimDue(now: Date, limit: number) {
     const candidates = await prisma.scheduledNotification.findMany({ where: { firedAt: null, fireAt: { lte: now } }, orderBy: { fireAt: 'asc' }, take: limit });
     const won: ScheduledNotificationRecord[] = [];

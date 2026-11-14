@@ -6,7 +6,11 @@ type Row = Omit<User, 'notifyChannel'> & { notifyChannel: string };
 const toUser = (r: Row): User => ({ ...r, notifyChannel: r.notifyChannel as NotifyChannel });
 const maybe = (r: Row | null) => (r ? toUser(r) : null);
 
-/** PATRÓN Repository (adaptador de salida): implementa `UserRepository` con Prisma/PostgreSQL. */
+/**
+ * PATRÓN Repository (adaptador de salida): implementa `UserRepository` con Prisma/PostgreSQL.
+ *
+ * @pattern Repository | Implementación con Prisma/PostgreSQL | Adaptador de salida del puerto; en las pruebas lo reemplaza una versión InMemory.
+ */
 export class PrismaUserRepository implements UserRepository {
   async findByEmail(email: string) { return maybe(await prisma.user.findUnique({ where: { email } })); }
   async findById(id: string) { return maybe(await prisma.user.findUnique({ where: { id } })); }

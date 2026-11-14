@@ -12,4 +12,5 @@ const POLICIES: Record<NotifyChannel, ChannelPolicy> = {
   BOTH: { push: true, email: true },
 };
 
+/** @pattern Strategy | Política por canal | IN_APP / EMAIL / BOTH deciden qué medios usar sin condicionales dispersos (RF-NOT-04). */
 export const channelPolicy = (channel: NotifyChannel | undefined): ChannelPolicy => POLICIES[channel ?? 'BOTH'];

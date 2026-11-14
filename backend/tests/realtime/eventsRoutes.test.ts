@@ -19,7 +19,7 @@ const INSIDE = new Date('2026-10-09T15:00:00Z');
 
 interface Client { res: http.IncomingMessage; text: () => string; waitFor: (s: string) => Promise<void>; close: () => void }
 
-describe('GET /api/events/stream', () => {
+describe('GET /api/v1/events/stream', () => {
   let server: http.Server, base: string, hub: SseHub, bus: EventBus;
   const clients: Client[] = [];
   const tokens = new FakeTokens();
@@ -46,7 +46,7 @@ describe('GET /api/events/stream', () => {
   });
 
   const connect = (token?: string) => new Promise<Client>((resolve, reject) => {
-    const req = http.get(`${base}/api/events/stream`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }, (res) => {
+    const req = http.get(`${base}/api/v1/events/stream`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }, (res) => {
       let buf = '';
       const waiters: Array<{ s: string; ok: () => void }> = [];
       res.setEncoding('utf8');
