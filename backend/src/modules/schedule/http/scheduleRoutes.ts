@@ -5,6 +5,12 @@ import { asyncHandler } from '../../../shared/http/asyncHandler';
 import { authenticate, requireRole } from '../../../shared/http/auth';
 
 const uuid = z.string().uuid('Identificador inválido');
+const filterSchema = z.object({
+  q: z.string().max(80).optional(),
+  weekday: z.coerce.number().int().min(1).max(7).optional(),
+  block: z.string().max(10).optional(),
+  teacher: z.string().max(80).optional(),
+});
 const formatSchema = z.object({ format: z.enum(['ics', 'pdf'], { errorMap: () => ({ message: 'Formato inválido (ics|pdf)' }) }) });
 
 export function scheduleRoutes(c: Container) {
@@ -12,7 +18,7 @@ export function scheduleRoutes(c: Container) {
   r.use(authenticate(c.tokens, c.revoked));
 
   r.get('/me', asyncHandler(async (req, res) => {
-    res.json(await c.getWeekly.execute({ requesterId: req.auth!.sub, requesterRole: req.auth!.role }));
+    res.json(await c.getWeekly.execute({ requesterId: req.auth!.sub, requesterRole: req.auth!.role, filter: filterSchema.parse(req.query) }));
   }));
 
   r.get('/me/export', asyncHandler(async (req, res) => {

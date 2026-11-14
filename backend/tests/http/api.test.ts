@@ -10,7 +10,7 @@ import { PdfExporter } from '../../src/modules/schedule/infrastructure/exporters
 import { registerAuditObserver } from '../../src/modules/audit/auditObserver';
 import {
   FakeHasher, FakeInstitutional, FakeTokens, InMemoryEnrollmentRepo, InMemoryRevoked,
-  InMemoryScheduleRepo, InMemorySyncRuns, InMemoryUsers, RecordingAudit, session,
+  InMemoryScheduleRepo, InMemorySyncRuns, InMemoryUsers, extraPorts, RecordingAudit, session,
 } from '../helpers/inMemory';
 
 const cfg = { port: 0, jwtSecret: 's', corsOrigin: '*', semester: '2026-2', semesterStart: '2026-08-03', semesterWeeks: 16, syncCron: '', syncConcurrency: 2 };
@@ -35,7 +35,7 @@ beforeEach(() => {
   const c = buildContainer({
     schedules, enrollments: new InMemoryEnrollmentRepo(['u1', U2]), institutional: inst,
     syncRuns: new InMemorySyncRuns(), users: new InMemoryUsers([mkUser('u1', 'STUDENT'), mkUser(U2, 'STUDENT', 'u2@x.co'), mkUser('admin', 'ADMIN')]),
-    revoked: new InMemoryRevoked(), hasher: new FakeHasher(), tokens: new FakeTokens(), audit, bus, eventLog: new InMemoryEventLog(), hub: new SseHub(),
+    revoked: new InMemoryRevoked(), hasher: new FakeHasher(), tokens: new FakeTokens(), audit, bus, eventLog: new InMemoryEventLog(), hub: new SseHub(), ...extraPorts(audit),
     exporters: { ics: new IcsExporter({ semesterStart: cfg.semesterStart, weeks: 16 }), pdf: new PdfExporter({ semester: '2026-2' }) },
   }, cfg);
   app = createApp(c, cfg);

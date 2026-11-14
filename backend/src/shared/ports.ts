@@ -10,3 +10,8 @@ export interface AuditEntry {
 export interface AuditPort {
   record(entry: AuditEntry): Promise<void>;
 }
+export interface AuditRecord extends AuditEntry { id: string; createdAt: Date }
+/** Puerto de LECTURA del log (RF-ADM-02). Separado de `AuditPort` (ISP): quien registra no necesita leer. */
+export interface AuditReader {
+  listRecent(limit: number, filter?: { action?: string }): Promise<AuditRecord[]>;
+}

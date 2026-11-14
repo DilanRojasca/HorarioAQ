@@ -1,11 +1,15 @@
 import { EventBus } from '../../shared/events/EventBus';
 import { Subscription } from '../../shared/events/types';
 import { isWithinSendWindow, SendWindowOptions } from '../../shared/window';
+import { UserRepository } from '../auth/application/ports';
+import { channelPolicy } from '../notifications/domain/channelPolicy';
 import { SseHub } from './SseHub';
 
 export interface RealtimeObserverDeps {
   now?: () => Date;
   window?: SendWindowOptions;
+  /** Para respetar el canal preferido (RF-NOT-04); sin él se entrega siempre. */
+  users?: UserRepository;
 }
 
 /**
@@ -16,15 +20,16 @@ export interface RealtimeObserverDeps {
  *   envío (RRF-05) y nunca para re-publicaciones (`replay`), que existen solo para el correo.
  */
 export function registerRealtimeObserver(bus: EventBus, hub: SseHub, deps: RealtimeObserverDeps = {}): Subscription[] {
-  const { now = () => new Date(), window } = deps;
+  const { now = () => new Date(), window, users } = deps;
   const opts: SendWindowOptions = window ?? {};
   return [
     bus.subscribe('ScheduleChanged', (e) => {
       hub.sendToUser(e.payload.userId, 'schedule-changed', { semester: e.payload.semester, count: e.payload.changes.length });
     }, { name: 'realtime-schedule', priority: 30 }),
-    bus.subscribe('NotificationCreated', (e) => {
+    bus.subscribe('NotificationCreated', async (e) => {
       const { replay, notificationId, userId, title, message, kind } = e.payload;
       if (replay === true || !isWithinSendWindow(now(), opts)) return;
+      if (users && !channelPolicy((await users.findById(userId))?.notifyChannel).push) return;
       hub.sendToUser(userId, 'notification', { id: notificationId, title, message, kind });
     }, { name: 'realtime-notification', priority: 30 }),
   ];

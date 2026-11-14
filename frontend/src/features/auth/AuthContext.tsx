@@ -1,12 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api, getToken, setToken } from '../../shared/api';
+import { api, getRefreshToken, getToken, setRefreshToken, setToken } from '../../shared/api';
 
-export interface AuthUser { id: string; name: string; email: string; role: 'STUDENT' | 'ADMIN' }
+export interface AuthUser { id: string; name: string; email: string; role: 'STUDENT' | 'ADMIN'; avatarUrl?: string | null }
 interface Ctx {
   user: AuthUser | null;
   login(email: string, password: string): Promise<void>;
   logout(): Promise<void>;
+  /** Actualiza el usuario en memoria/sesión (p. ej. tras editar el perfil). */
+  updateUser(patch: Partial<AuthUser>): void;
 }
 
 const AuthCtx = createContext<Ctx | null>(null);
@@ -22,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clear = useCallback(() => {
     setToken(null);
+    setRefreshToken(null);
     try { sessionStorage.removeItem(USER_KEY); } catch { /* ignore */ }
     setUser(null);
   }, []);
@@ -34,14 +37,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Ctx>(() => ({
     user,
     async login(email, password) {
-      const r = await api.post<{ token: string; user: AuthUser }>('/auth/login', { email, password });
+      const r = await api.post<{ token: string; refreshToken?: string; user: AuthUser }>('/auth/login', { email, password });
       setToken(r.token);
+      setRefreshToken(r.refreshToken ?? null);
       try { sessionStorage.setItem(USER_KEY, JSON.stringify(r.user)); } catch { /* ignore */ }
       setUser(r.user);
     },
     async logout() {
-      try { await api.post('/auth/logout'); } catch { /* sesión ya inválida */ }
+      try { await api.post('/auth/logout', { refreshToken: getRefreshToken() ?? undefined }); } catch { /* sesión ya inválida */ }
       clear();
+    },
+    updateUser(patch) {
+      setUser((cur) => {
+        if (!cur) return cur;
+        const next = { ...cur, ...patch };
+        try { sessionStorage.setItem(USER_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+        return next;
+      });
     },
   }), [user, clear]);
 

@@ -1,10 +1,11 @@
 import { UseCase } from '../../../shared/ports';
 import { assertCanView } from '../domain/access';
 import { activeSessions, sortSessions } from '../domain/sort';
+import { buildScheduleSpec, ScheduleFilter } from '../domain/specifications';
 import { ClassSession, Role } from '../domain/types';
 import { EnrollmentRepository, ScheduleRepository } from './ports';
 
-export interface WeeklyInput { requesterId: string; requesterRole: Role; targetUserId?: string }
+export interface WeeklyInput { requesterId: string; requesterRole: Role; targetUserId?: string; filter?: ScheduleFilter }
 export interface WeeklyResult { userId: string; semester: string; enrolled: boolean; sessions: ClassSession[] }
 
 export class GetWeeklyScheduleUseCase implements UseCase<WeeklyInput, WeeklyResult> {
@@ -19,7 +20,8 @@ export class GetWeeklyScheduleUseCase implements UseCase<WeeklyInput, WeeklyResu
     assertCanView({ id: i.requesterId, role: i.requesterRole }, userId);
     const enrolled = await this.enrollments.hasActive(userId, this.semester);
     if (!enrolled) return { userId, semester: this.semester, enrolled, sessions: [] };
+    const spec = buildScheduleSpec(i.filter ?? {});
     const all = await this.schedules.findByUser(userId, this.semester);
-    return { userId, semester: this.semester, enrolled, sessions: sortSessions(activeSessions(all)) };
+    return { userId, semester: this.semester, enrolled, sessions: sortSessions(activeSessions(all)).filter((x) => spec.isSatisfiedBy(x)) };
   }
 }

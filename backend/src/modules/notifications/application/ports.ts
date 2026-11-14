@@ -53,3 +53,19 @@ export interface EmailMessage { to: string; subject: string; text: string; html?
 export interface EmailPort {
   send(msg: EmailMessage): Promise<void>;
 }
+
+export type ScheduledKind = 'CUSTOM' | 'CLASS_REMINDER';
+export interface ScheduledNotificationRecord {
+  id: string; userId: string; kind: ScheduledKind; title: string; message: string; fireAt: Date; firedAt: Date | null;
+}
+
+/** PATRÓN Repository para las notificaciones programadas (RF-NOT-01/02). */
+export interface ScheduledNotificationRepository {
+  /** `false` si ya existía una con el mismo `dedupKey` (idempotencia de los recordatorios). */
+  create(n: { userId: string; kind: ScheduledKind; title: string; message: string; fireAt: Date; dedupKey?: string }): Promise<boolean>;
+  listPendingByUser(userId: string): Promise<ScheduledNotificationRecord[]>;
+  /** `false` si no existe, no es del usuario o ya se disparó. */
+  cancel(userId: string, id: string): Promise<boolean>;
+  /** Reclama de forma atómica las vencidas (fireAt <= now, sin disparar) y las marca disparadas. */
+  claimDue(now: Date, limit: number): Promise<ScheduledNotificationRecord[]>;
+}

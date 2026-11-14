@@ -22,3 +22,14 @@ export function listNotifications(opts: { unread?: boolean; limit?: number } = {
 
 export const markRead = (id: string) => api.post<void>(`/notifications/${id}/read`);
 export const markAllRead = () => api.post<{ updated: number }>('/notifications/read-all');
+
+export interface ScheduledNotification { id: string; kind: 'CUSTOM' | 'CLASS_REMINDER'; title: string; message: string; fireAt: string }
+export type NotifyChannel = 'IN_APP' | 'EMAIL' | 'BOTH';
+export interface Preferences { notifyChannel: NotifyChannel; reminderMinutes: number }
+
+export const listScheduled = () => api.get<ScheduledNotification[]>('/notifications/scheduled');
+export const createScheduled = (b: { title: string; message: string; fireAt: string; sessionExternalId?: string }) =>
+  api.post<ScheduledNotification[]>('/notifications/scheduled', b);
+export const cancelScheduled = (id: string) => api.del(`/notifications/scheduled/${id}`);
+export const getPreferences = () => api.get<Preferences>('/auth/me');
+export const savePreferences = (p: Partial<Preferences>) => api.put<Preferences>('/notifications/preferences', p);

@@ -11,7 +11,7 @@ import { registerAuditObserver } from '../../src/modules/audit/auditObserver';
 import { registerSyncStatsObserver } from '../../src/modules/schedule/observers/syncStatsObserver';
 import {
   FakeHasher, FakeInstitutional, FakeTokens, InMemoryEnrollmentRepo, InMemoryRevoked,
-  InMemoryScheduleRepo, InMemorySyncRuns, InMemoryUsers, RecordingAudit, session,
+  InMemoryScheduleRepo, InMemorySyncRuns, InMemoryUsers, extraPorts, RecordingAudit, session,
 } from '../helpers/inMemory';
 
 const cfg = { port: 0, jwtSecret: 's', corsOrigin: '*', semester: '2026-2', semesterStart: '2026-08-03', semesterWeeks: 16, syncCron: '', syncConcurrency: 2 };
@@ -37,7 +37,7 @@ beforeEach(() => {
   app = createApp(buildContainer({
     schedules: new InMemoryScheduleRepo(), enrollments: new InMemoryEnrollmentRepo(['u1']), institutional: inst,
     syncRuns: runs, users: new InMemoryUsers([mkUser('u1', 'STUDENT'), mkUser('admin', 'ADMIN')]),
-    revoked: new InMemoryRevoked(), hasher: new FakeHasher(), tokens: new FakeTokens(), audit, bus, eventLog, hub: new SseHub(),
+    revoked: new InMemoryRevoked(), hasher: new FakeHasher(), tokens: new FakeTokens(), audit, bus, eventLog, hub: new SseHub(), ...extraPorts(audit),
     exporters: { ics: new IcsExporter({ semesterStart: cfg.semesterStart, weeks: 16 }), pdf: new PdfExporter({ semester: '2026-2' }) },
   }, cfg), cfg);
   inst.data.set('u1', [session()]);
@@ -85,5 +85,19 @@ describe('GET /api/admin/events', () => {
   it.each(['0', 'abc', '101', '1.5'])('400 con limit=%s', async (limit) => {
     const admin = await login('admin@x.co');
     expect((await request(app).get(`/api/admin/events?limit=${limit}`).set('Authorization', `Bearer ${admin}`)).status).toBe(400);
+  });
+
+  it('POST /admin/events/test publica un ScheduleChanged ficticio y exige ADMIN', async () => {
+    const admin = await login('admin@x.co');
+    const r = await request(app).post('/api/admin/events/test').set('Authorization', `Bearer ${admin}`).send({ kind: 'UPDATED' });
+    expect(r.status).toBe(201);
+    expect(r.body.deliveries.some((d: { observer: string }) => d.observer === 'audit')).toBe(true);
+    expect((await request(app).post('/api/admin/events/test').set('Authorization', `Bearer ${admin}`).send({ kind: 'X' })).status).toBe(400);
+    const unknown = '33333333-3333-4333-8333-333333333333';
+    expect((await request(app).post('/api/admin/events/test').set('Authorization', `Bearer ${admin}`).send({ userId: unknown })).status).toBe(404);
+    const list = await request(app).get('/api/admin/students').set('Authorization', `Bearer ${admin}`);
+    expect(list.body.map((s: { email: string }) => s.email)).toContain('u1@x.co');
+    const t1 = await login('u1@x.co');
+    expect((await request(app).post('/api/admin/events/test').set('Authorization', `Bearer ${t1}`)).status).toBe(403);
   });
 });

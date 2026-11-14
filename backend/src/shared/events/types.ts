@@ -1,6 +1,11 @@
 import type { ScheduleChange } from '../../modules/schedule/domain/types';
 
-export type NotificationKind = 'SCHEDULE_ADDED' | 'SCHEDULE_UPDATED' | 'SCHEDULE_CANCELLED';
+export type NotificationKind =
+  | 'SCHEDULE_ADDED' | 'SCHEDULE_UPDATED' | 'SCHEDULE_CANCELLED'
+  /** RF-NOT-01: notificación propia programada por el estudiante. */
+  | 'CUSTOM'
+  /** RF-NOT-02: recordatorio automático antes de una clase. */
+  | 'CLASS_REMINDER';
 
 /** Catálogo de eventos del dominio: tipo → forma del payload. */
 export interface EventMap {

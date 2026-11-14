@@ -1,7 +1,9 @@
 account_circle
+add
 alarm
 apartment
 arrow_forward
+badge
 bolt
 calendar_month
 check_circle
@@ -9,6 +11,7 @@ close
 done_all
 error
 event
+expand_more
 folder_managed
 free_cancellation
 hourglass_empty
@@ -22,13 +25,17 @@ mark_email_read
 notifications
 notifications_active
 person
+photo_camera
 picture_as_pdf
 priority_high
+radio_button_unchecked
 refresh
 schedule
 school
+search
 sync
 today
+tune
 visibility
 visibility_off
 warning

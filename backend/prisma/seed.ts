@@ -18,7 +18,7 @@ async function main() {
   for (const u of users) {
     const user = await prisma.user.upsert({
       where: { email: u.email },
-      create: { name: u.name, email: u.email, role: u.role, passwordHash: hash },
+      create: { name: u.name, email: u.email, role: u.role, passwordHash: hash, verifiedAt: new Date() },
       update: {}, // no se pisa la contraseña de un usuario existente
     });
     if (u.enrolled) {
@@ -27,6 +27,18 @@ async function main() {
         create: { userId: user.id, semester: config.semester, active: true },
         update: { active: true },
       });
+    }
+  }
+  // Catálogo académico de ejemplo (RF-ADM-01 / RRF-03: todo programa pertenece a una facultad).
+  const catalog: Record<string, Array<[string, string]>> = {
+    'Facultad de Ingeniería': [['ISI', 'Ingeniería de Sistemas'], ['IIN', 'Ingeniería Industrial']],
+    'Facultad de Ciencias de la Salud': [['PSI', 'Psicología']],
+    'Facultad de Ciencias Administrativas': [['ADM', 'Administración de Empresas']],
+  };
+  for (const [name, programs] of Object.entries(catalog)) {
+    const faculty = await prisma.faculty.upsert({ where: { name }, create: { name }, update: {} });
+    for (const [code, pname] of programs) {
+      await prisma.program.upsert({ where: { code }, create: { code, name: pname, facultyId: faculty.id }, update: {} });
     }
   }
   // Carga inicial del horario base (1.ª consulta del adaptador mock).

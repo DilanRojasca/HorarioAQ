@@ -3,6 +3,8 @@ import { AuditPort, UseCase } from './ports';
 export interface AuditOptions<I, O> {
   entity: string;
   actorOf: (input: I) => string | undefined;
+  /** Para acciones donde el actor solo se conoce al terminar (p. ej. el login). */
+  actorOfOutput?: (output: O) => string | undefined;
   detailOf?: (input: I, output: O) => unknown;
   shouldAudit?: (input: I) => boolean;
   /** Si el caso de uso lanza, registra `<action>_FAILED` con `{ message }` y relanza. */
@@ -33,7 +35,7 @@ export function withAudit<I, O>(
       }
       if (!opts.shouldAudit || opts.shouldAudit(input)) {
         await audit.record({
-          actorId: opts.actorOf(input),
+          actorId: opts.actorOfOutput?.(output) ?? opts.actorOf(input),
           action,
           entity: opts.entity,
           detail: opts.detailOf?.(input, output),

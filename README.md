@@ -1,6 +1,8 @@
-# Horario UNI — módulo Horario Académico
+# Horario UNI
 
-Módulo **Horario Académico** de Horario UNI (Universidad Católica Luis Amigó). Permite a un estudiante matriculado consultar su horario semanal, ver el detalle de cada clase, exportarlo (PDF / `.ics`) y enterarse de los cambios; un administrador puede lanzar la sincronización con el sistema institucional.
+> **Documentación de arquitectura (para la materia):** [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) y, con archivo y línea de cada patrón, [docs/PATRONES.md](docs/PATRONES.md). Cada carpeta de `backend/src` y `frontend/src` tiene su propio `README.md` que explica qué patrón de diseño se usa allí y por qué.
+
+Aplicación de gestión académica personal de la Universidad Católica Luis Amigó. Un estudiante crea su cuenta con correo institucional (verificada por OTP), consulta su horario semanal con búsqueda y filtros, ve el detalle de cada clase, lo exporta (PDF / `.ics`), descubre y organiza sus **tiempos libres** entre clases, recibe **notificaciones** (cambios de horario, recordatorios y avisos propios) por la app o por correo y gestiona su perfil. Un administrador sincroniza los horarios con el sistema institucional, gestiona roles, el catálogo de facultades/programas y consulta la auditoría.
 
 Stack: React 18 + Vite (frontend), Node 20 + Express + Prisma + PostgreSQL (backend).
 
@@ -92,6 +94,8 @@ El seed es idempotente (upsert de usuarios y matrículas; no restablece la contr
 
 ## Usuarios semilla
 
+Además, cualquiera puede **registrarse** con un correo `@amigo.edu.co` (pantalla «Regístrate»). En desarrollo (`EMAIL_MODE=console`) el código OTP se imprime en la consola del backend como `[otp:dev] VERIFY para=… código=…`.
+
 Contraseña de todos: el valor de `SEED_PASSWORD` (por defecto, el de `backend/.env.example`).
 
 | Correo | Rol | Nota |
@@ -121,18 +125,40 @@ Contraseña de todos: el valor de `SEED_PASSWORD` (por defecto, el de `backend/.
 | RNF-11 (cobertura) | `backend/vitest.config.ts` (umbrales 70 % líneas/funciones/sentencias, 60 % ramas) |
 | RNF-14 (auditoría) | `shared/audit.ts`, `modules/audit/`, tabla `AuditLog` |
 | RNF-15 (copias de seguridad) | Servicio `backup` en `docker-compose.yml` |
+| RF-AUTH-01/05 (registro + verificación OTP) | `auth/application/{Register,VerifyAccount,OtpService}.ts`, `auth/domain/registrationRules.ts`; frontend `features/auth/{Register,Verify}Page.tsx` |
+| RF-AUTH-04 (recuperar contraseña) | `auth/application/PasswordReset.ts`; `features/auth/ForgotPasswordPage.tsx` |
+| RF-AUTH-06 (editar perfil) | `auth/application/UpdateProfile.ts` (`PUT /api/auth/me`); `features/profile/` |
+| RF-AUTH-07 (roles) | `auth/application/ManageUsers.ts` (`PUT /api/admin/users/:id/role`); `features/admin/UsersPage.tsx` |
+| RNF-05 (refresh token) | `auth/application/RefreshTokenService.ts` (`POST /api/auth/refresh`); `frontend/src/shared/api.ts` |
+| RF-HUE-01..04 (huecos) | `modules/gaps/`; `features/gaps/GapsPage.tsx` |
+| RF-NOT-01/02 (propias y recordatorios) | `notifications/application/ScheduledNotifications.ts`, `notifications/domain/reminders.ts`, `jobs/reminderJob.ts`; `features/notifications/NotificationsPage.tsx` |
+| RF-NOT-04 (canal preferido) | `notifications/domain/channelPolicy.ts` (usado por `EmailObserver` y `RealtimeObserver`) |
+| RF-BUS-01/02 (búsqueda y filtros) | `schedule/domain/specifications.ts` (`GET /api/schedule/me?q=&weekday=&block=&teacher=`); `features/schedule/{filter.ts,SearchFilters.tsx}` |
+| RF-ADM-01 / RRF-03 (catálogo) | `modules/catalog/`; `features/admin/CatalogPage.tsx` |
+| RF-ADM-02 (auditoría) | `GET /api/admin/audit`; `features/admin/AuditPage.tsx` |
+| RRF-06 (solo `@amigo.edu.co`) | `institutionalEmailRule` en `registrationRules.ts` |
+
+Trazabilidad completa con pruebas: [docs/ARQUITECTURA.md §8](docs/ARQUITECTURA.md).
 
 ## Patrones de diseño
 
+Resumen; el catálogo completo, con el problema que resuelve cada uno, está en [docs/ARQUITECTURA.md §4](docs/ARQUITECTURA.md).
+
 | Patrón | Dónde |
 |---|---|
-| Repository | Puertos en `schedule/application/ports.ts` y `auth/application/ports.ts`; `Prisma*Repository.ts` en `infrastructure/` |
-| Adapter | `schedule/infrastructure/MockInstitutionalAdapter.ts` implementa `InstitutionalPort` |
+| Arquitectura hexagonal (puertos y adaptadores) | `modules/*/application/ports.ts` (puertos) ↔ `modules/*/infrastructure/` (adaptadores) |
+| Repository | Puertos `*Repository` y sus `Prisma*Repository` (y `InMemory*` en `tests/helpers`) |
+| Adapter | `MockInstitutionalAdapter`, `BrevoEmailAdapter`/`ConsoleEmailAdapter`, `EmailOtpMailer`, `Argon2Hasher`, `JwtTokenService` |
+| Factory | `buildEmailAdapter`, `buildScheduleSpec` |
 | Template Method | `schedule/infrastructure/exporters/BaseExporter.ts` (+ `PdfExporter`, `IcsExporter`) |
-| Observer / Domain Events | Bus tipado `shared/events/EventBus.ts` con observadores en `modules/audit/auditObserver.ts`, `modules/notifications/application/{Notification,Email}Observer.ts`, `modules/schedule/observers/syncStatsObserver.ts` y `modules/realtime/RealtimeObserver.ts`; flujo SSE en `modules/realtime/SseHub.ts`; en el navegador `frontend/src/shared/realtime.ts` (`RealtimeClient`). Ver «Eventos y patrón Observer» |
-| Facade | `schedule/application/SyncSchedule.ts` (adaptador → diff → persistencia → eventos) |
-| Chain of Responsibility | Cadena de middlewares Express: `shared/http/app.ts`, `auth.ts` (`authenticate` → `requireRole`), `errorHandler.ts` |
-| Decorator | `shared/audit.ts` (`withAudit`), aplicado en `shared/container.ts` |
+| **Observer** / Domain Events | `shared/events/EventBus.ts` + observadores `audit`, `notifications`, `email`, `realtime-*`, `sync-stats`; navegador: `frontend/src/shared/realtime.ts`. Ver «Eventos y patrón Observer» |
+| **Strategy** | `gaps/domain/suggestions.ts` (sugerencias por duración), `notifications/domain/channelPolicy.ts` (canal), exportadores por formato |
+| **Specification** | `schedule/domain/specifications.ts` (búsqueda y filtros combinables) |
+| Chain of Responsibility | Middlewares `authenticate → requireRole → zod → errorHandler`; `auth/domain/registrationRules.ts` (validación del registro); `ProtectedRoute` |
+| Facade | `SyncScheduleUseCase`, `RegisterUseCase`, `GapService` |
+| Decorator | `shared/audit.ts` (`withAudit`) aplicado en `container.ts`; `DevLoggingOtpMailer` |
+| Command / Use Case | Interfaz `UseCase<I,O>`: todos los casos de uso |
+| Proxy / Interceptor | `frontend/src/shared/api.ts` (refresh token transparente) |
 | Dependency Injection | `shared/container.ts` (`buildContainer`), cableado en `main.ts` (`wire`) |
 | Singleton | `shared/prisma.ts` (un `PrismaClient` por proceso) |
 
@@ -301,14 +327,12 @@ Para integrar el sistema real: crear una clase que implemente `InstitutionalPort
 
 ## Fuera de alcance de esta iteración
 
-Registro de usuarios / OTP, detección de huecos, búsqueda y CRUD de facultades/programas.
-
-Del módulo de notificaciones ya están entregados: bus de eventos, notificaciones en la app, tiempo real y correo con ventana de envío y la integración con Brevo (adaptador y pruebas con `fetch` simulado; el envío real queda por activar siguiendo «Cómo activar Brevo de forma segura»). Siguen pendientes: notificaciones personalizadas (RF-NOT-01), recordatorios programados (RF-NOT-02) y canal por usuario (RF-NOT-04).
+Matrícula de materias, mensajería entre usuarios y pagos/trámites financieros (excluidos por el SRS). Pendiente de activar en producción: el envío real de correo con Brevo (ver «Cómo activar Brevo de forma segura»).
 
 ## Pruebas
 
 ```bash
-cd backend  && npm test && npm run test:cov     # 185 tests (frontend: 144); cobertura backend ~96,7 % líneas, ~95,3 % ramas (umbral 70/60)
+cd backend  && npm test && npm run test:cov     # 287 tests (frontend: 182); cobertura backend ~99 % líneas, ~94,6 % ramas (umbral 70/60)
 cd frontend && npx vitest run && npx tsc --noEmit -p tsconfig.app.json && npm run build
 ```
 

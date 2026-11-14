@@ -41,6 +41,7 @@ export class EventBus {
   private readonly now: () => Date;
   private readonly newId: () => string;
 
+  
   constructor(opts: EventBusOptions = {}) {
     this.log = opts.log;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));

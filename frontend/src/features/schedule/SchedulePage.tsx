@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRealtime } from '../../shared/RealtimeProvider';
 import { useAuth } from '../auth/AuthContext';
 import { useToast } from '../notifications/ToastProvider';
 import ClassDetail from './ClassDetail';
 import DayAgenda from './DayAgenda';
 import ExportMenu from './ExportMenu';
+import { EMPTY_FILTER, filterSessions, isFiltering } from './filter';
+import type { ScheduleFilter } from './filter';
+import SearchFilters from './SearchFilters';
 import NoEnrollment from './NoEnrollment';
 import TodayCard from './TodayCard';
 import WeeklyCalendar from './WeeklyCalendar';
@@ -16,7 +19,9 @@ export default function SchedulePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selected, setSelected] = useState<Session | null>(null);
+  const [filter, setFilter] = useState<ScheduleFilter>(EMPTY_FILTER);
   const [, setTick] = useState(0);
+  const filtered = useMemo(() => filterSessions(data?.sessions ?? [], filter), [data, filter]);
   // Refresca "En curso / Siguiente" cada minuto.
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 60_000);
@@ -49,11 +54,18 @@ export default function SchedulePage() {
 
       <ExportMenu />
       <TodayCard sessions={data.sessions} now={now} onSelect={setSelected} />
+      <SearchFilters sessions={data.sessions} value={filter} onChange={setFilter} matches={filtered.length} />
 
       <section aria-labelledby="week-title" className="space-y-3">
         <h2 id="week-title" className="m-0 text-headline-md font-bold text-on-surface">Semana</h2>
-        <div className="md:hidden"><DayAgenda sessions={data.sessions} now={now} onSelect={setSelected} /></div>
-        <div className="hidden md:block"><WeeklyCalendar sessions={data.sessions} onSelect={setSelected} /></div>
+        {isFiltering(filter) && filtered.length === 0 ? (
+          <p className="m-0 rounded-[10px] border border-outline-variant bg-surface-container-lowest p-4 text-body-md text-on-surface-variant">No hay clases que coincidan con la búsqueda.</p>
+        ) : (
+          <>
+            <div className="md:hidden"><DayAgenda sessions={filtered} now={now} onSelect={setSelected} /></div>
+            <div className="hidden md:block"><WeeklyCalendar sessions={filtered} onSelect={setSelected} /></div>
+          </>
+        )}
       </section>
 
       {selected && <ClassDetail session={selected} onClose={() => setSelected(null)} />}

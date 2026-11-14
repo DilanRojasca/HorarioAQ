@@ -34,5 +34,5 @@ export function registerObservers(bus: EventBus, deps: ObserverDeps): void {
   registerSyncStatsObserver(bus, syncRuns);
   registerNotificationObserver(bus, notifications);
   registerEmailObserver({ bus, notifications, users, email, window: sendWindow, now });
-  registerRealtimeObserver(bus, hub, { window: sendWindow, now });
+  registerRealtimeObserver(bus, hub, { window: sendWindow, now, users });
 }

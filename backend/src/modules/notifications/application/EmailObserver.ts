@@ -2,6 +2,7 @@ import { EventBus } from '../../../shared/events/EventBus';
 import { Subscription } from '../../../shared/events/types';
 import { isWithinSendWindow, SendWindowOptions } from '../../../shared/window';
 import { UserRepository } from '../../auth/application/ports';
+import { channelPolicy } from '../domain/channelPolicy';
 import { EMAIL_OBSERVER_RETRIES, EmailPort, NotificationRepository } from './ports';
 
 export interface EmailObserverDeps {
@@ -33,6 +34,10 @@ export function registerEmailObserver(deps: EmailObserverDeps): Subscription[] {
       if (!n || n.emailedAt || n.emailSkippedAt) return;
       const user = await users.findById(n.userId);
       if (!user || !user.active) {
+        await notifications.markEmailSkipped(n.id, at);
+        return;
+      }
+      if (!channelPolicy(user.notifyChannel).email) { // RF-NOT-04: el usuario eligió solo notificaciones en la app
         await notifications.markEmailSkipped(n.id, at);
         return;
       }

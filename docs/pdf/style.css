@@ -1,0 +1,31 @@
+@page { size: A4; margin: 18mm 15mm 18mm 15mm; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; font-size: 10pt; line-height: 1.5; color: #1b2a33; }
+h1 { font-size: 20pt; color: #00566f; border-bottom: 3px solid #fc9430; padding-bottom: 4px; margin-top: 0; page-break-before: always; }
+h1.first { page-break-before: avoid; }
+h2 { font-size: 14pt; color: #00566f; margin-top: 22px; border-bottom: 1px solid #bfc8cd; padding-bottom: 2px; page-break-after: avoid; }
+h3 { font-size: 11.5pt; color: #1f6f8b; margin-top: 16px; page-break-after: avoid; }
+p, li { orphans: 3; widows: 3; }
+code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.4pt; background: #eef5fa; padding: 1px 4px; border-radius: 3px; word-break: break-word; }
+pre { background: #0e1d26; color: #e3f3ff; padding: 10px 12px; border-radius: 6px; font-size: 8pt; line-height: 1.4; white-space: pre-wrap; page-break-inside: avoid; }
+pre code { background: none; color: inherit; padding: 0; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0 14px; font-size: 8.6pt; page-break-inside: auto; }
+tr { page-break-inside: avoid; }
+th { background: #00566f; color: #fff; text-align: left; padding: 6px 7px; }
+td { border: 1px solid #d5e5f1; padding: 5px 7px; vertical-align: top; }
+tr:nth-child(even) td { background: #f5faff; }
+blockquote { margin: 10px 0; padding: 8px 12px; background: #fff6ec; border-left: 4px solid #fc9430; color: #4a3a2a; }
+a { color: #00566f; text-decoration: none; }
+hr { border: 0; border-top: 1px solid #d5e5f1; margin: 18px 0; }
+.mermaid { text-align: center; margin: 12px 0; page-break-inside: avoid; }
+.cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; border-left: 10px solid #fc9430; padding-left: 22px; }
+.cover .uni { color: #1f6f8b; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; font-size: 10pt; }
+.cover h1 { border: 0; font-size: 34pt; line-height: 1.1; margin: 10px 0 6px; page-break-before: avoid; }
+.cover .sub { font-size: 14pt; color: #4a5a63; margin-bottom: 40px; }
+.cover dl { margin: 0; font-size: 11pt; }
+.cover dt { font-weight: 700; color: #00566f; margin-top: 10px; }
+.cover dd { margin: 0; }
+#TOC { page-break-after: always; }
+#TOC ul { list-style: none; padding-left: 14px; }
+#TOC > ul { padding-left: 0; }
+#TOC a { color: #1b2a33; }

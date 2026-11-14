@@ -13,15 +13,119 @@ enum Role {
 }
 
 model User {
-  id            String         @id @default(uuid()) @db.Uuid
-  name          String
-  email         String         @unique
-  passwordHash  String
-  role          Role           @default(STUDENT)
-  active        Boolean        @default(true)
-  enrollments   Enrollment[]
-  sessions      ClassSession[]
-  notifications Notification[]
+  id              String                  @id @default(uuid()) @db.Uuid
+  name            String
+  email           String                  @unique
+  passwordHash    String
+  role            Role                    @default(STUDENT)
+  active          Boolean                 @default(true)
+  /// RF-AUTH-05: la cuenta nace inactiva y se activa al confirmar el OTP de verificación.
+  verifiedAt      DateTime?
+  documentType    String?
+  documentNumber  String?
+  /// RF-AUTH-06: foto de perfil (URL o data-URL pequeña).
+  avatarUrl       String?
+  /// RF-NOT-04: canal preferido (IN_APP | EMAIL | BOTH).
+  notifyChannel   String                  @default("BOTH")
+  /// RF-NOT-02: minutos de antelación del recordatorio de clase.
+  reminderMinutes Int                     @default(15)
+  enrollments     Enrollment[]
+  sessions        ClassSession[]
+  notifications   Notification[]
+  otps            Otp[]
+  refreshTokens   RefreshToken[]
+  activities      GapActivity[]
+  gapSlots        GapSlot[]
+  scheduled       ScheduledNotification[]
+}
+
+/// RF-AUTH-04/05, RNF-07: código de un solo uso (se guarda su hash, nunca el código).
+model Otp {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  purpose   String // VERIFY | RESET
+  codeHash  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, createdAt])
+}
+
+/// RNF-05: refresh token rotativo (se guarda su hash).
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// RF-ADM-01 / RRF-03: todo programa pertenece a una facultad.
+model Faculty {
+  id       String    @id @default(uuid()) @db.Uuid
+  name     String    @unique
+  programs Program[]
+}
+
+model Program {
+  id        String  @id @default(uuid()) @db.Uuid
+  code      String  @unique
+  name      String
+  facultyId String  @db.Uuid
+  faculty   Faculty @relation(fields: [facultyId], references: [id])
+
+  @@index([facultyId])
+}
+
+/// RF-HUE-03: actividad propia asignada a un hueco (identificado por día + franja).
+model GapActivity {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  weekday   Int
+  startTime String
+  endTime   String
+  title     String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekday, startTime, endTime])
+}
+
+/// RF-HUE-04: hueco marcado como OCCUPIED o AVAILABLE.
+model GapSlot {
+  id        String @id @default(uuid()) @db.Uuid
+  userId    String @db.Uuid
+  weekday   Int
+  startTime String
+  endTime   String
+  status    String // OCCUPIED | AVAILABLE
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekday, startTime, endTime])
+}
+
+/// RF-NOT-01/02: notificaciones programadas (propias o recordatorios de clase). `dedupKey` evita duplicados.
+model ScheduledNotification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  kind      String // CUSTOM | CLASS_REMINDER
+  title     String
+  message   String
+  fireAt    DateTime
+  firedAt   DateTime?
+  dedupKey  String?   @unique
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([firedAt, fireAt])
+  @@index([userId, fireAt])
 }
 
 model Enrollment {
@@ -119,19 +223,19 @@ model EventDelivery {
 }
 
 model Notification {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @db.Uuid
-  kind      String
-  title     String
-  message   String
-  createdAt DateTime  @default(now())
-  readAt    DateTime?
-  emailedAt DateTime?
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @db.Uuid
+  kind           String
+  title          String
+  message        String
+  createdAt      DateTime  @default(now())
+  readAt         DateTime?
+  emailedAt      DateTime?
   /// Terminal: el correo no aplica (usuario inexistente o inactivo); nunca se vuelve a intentar.
   emailSkippedAt DateTime?
   /// Envíos fallidos; al llegar al tope el job de pendientes deja de reintentar.
   emailAttempts  Int       @default(0)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([emailedAt, createdAt])
