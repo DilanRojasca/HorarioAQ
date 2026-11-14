@@ -1,10 +1,13 @@
+import { GapCell } from './GapBlockView';
+import { gapKey } from './gapBlocks';
+import type { GapBlock } from './gapBlocks';
 import { GRID_END, GRID_START, WEEKDAYS, gridRow } from './grid';
 import type { Session } from './types';
 
 const HOURS = Array.from({ length: (GRID_END - GRID_START) / 60 }, (_, i) => GRID_START / 60 + i);
 const ROWS = (GRID_END - GRID_START) / 30;
 
-export default function WeeklyCalendar({ sessions, onSelect }: { sessions: Session[]; onSelect(s: Session): void }) {
+export default function WeeklyCalendar({ sessions, onSelect, gaps = [] }: { sessions: Session[]; onSelect(s: Session): void; gaps?: GapBlock[] }) {
   return (
     <div className="overflow-x-auto rounded-[10px] border border-outline-variant bg-surface-container-lowest">
       <div
@@ -30,6 +33,9 @@ export default function WeeklyCalendar({ sessions, onSelect }: { sessions: Sessi
           >
             {String(h).padStart(2, '0')}:00
           </div>
+        ))}
+        {gaps.map((b) => (
+          <GapCell key={gapKey(b)} block={b} style={{ gridColumn: String(b.weekday + 1), gridRow: `${gridRow(b.startTime)} / ${gridRow(b.endTime)}` }} />
         ))}
         {sessions.map((s) => (
           <button

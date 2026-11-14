@@ -1,16 +1,9 @@
 import { Router } from 'express';
-import { z } from 'zod';
 import { Container } from '../../../shared/container';
 import { notFound } from '../../../shared/errors';
 import { asyncHandler } from '../../../shared/http/asyncHandler';
 import { authenticate } from '../../../shared/http/auth';
-
-const uuid = z.string().uuid('Identificador inválido');
-const listQuery = z.object({
-  unread: z.enum(['1', '0', 'true', 'false']).optional(),
-  limit: z.coerce.number({ invalid_type_error: 'limit inválido' }).int('limit debe ser entero')
-    .min(1, 'limit mínimo 1').max(100, 'limit máximo 100').default(30),
-});
+import { listQuery, prefsBody, scheduleBody, uuid } from './schemas';
 
 export function notificationRoutes(c: Container) {
   const r = Router();
@@ -24,6 +17,21 @@ export function notificationRoutes(c: Container) {
       c.notifications.countUnread(userId),
     ]);
     res.json({ items, unread });
+  }));
+
+  // RF-NOT-01: notificaciones propias programadas
+  r.get('/scheduled', asyncHandler(async (req, res) => { res.json(await c.listScheduled.execute({ userId: req.auth!.sub })); }));
+  r.post('/scheduled', asyncHandler(async (req, res) => {
+    const b = scheduleBody.parse(req.body);
+    res.status(201).json(await c.createCustomNotification.execute({ userId: req.auth!.sub, ...b }));
+  }));
+  r.delete('/scheduled/:id', asyncHandler(async (req, res) => {
+    await c.cancelScheduled.execute({ userId: req.auth!.sub, id: uuid.parse(req.params.id) });
+    res.status(204).end();
+  }));
+  // RF-NOT-04 / RF-NOT-02: canal preferido y antelación del recordatorio
+  r.put('/preferences', asyncHandler(async (req, res) => {
+    res.json(await c.updatePreferences.execute({ userId: req.auth!.sub, ...prefsBody.parse(req.body) }));
   }));
 
   // Antes de '/:id/read' para que 'read-all' nunca se interprete como id.

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../shared/api';
 import type { WeeklyResult } from './types';
 
+/** @pattern Custom Hook | Datos del horario | El hook trae los datos («gana la última respuesta»); el componente solo dibuja. */
 export function useSchedule() {
   const [data, setData] = useState<WeeklyResult | null>(null);
   const [error, setError] = useState('');

@@ -32,6 +32,8 @@ export interface EventBusOptions {
  * - Las suscripciones `once` se retiran antes de invocarse.
  * - `publish` nunca rechaza: devuelve un reporte y los fallos del historial solo se registran en consola.
  * - `idle()` espera a todas las publicaciones en vuelo, incluidas las iniciadas desde observadores.
+ *
+ * @pattern Observer | Subject (el bus) | Publica eventos sin conocer a quién los escucha; aísla y reintenta cada observador.
  */
 export class EventBus {
   private entries: Entry[] = [];
@@ -41,6 +43,7 @@ export class EventBus {
   private readonly now: () => Date;
   private readonly newId: () => string;
 
+  
   constructor(opts: EventBusOptions = {}) {
     this.log = opts.log;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
@@ -48,6 +51,7 @@ export class EventBus {
     this.newId = opts.newId ?? randomUUID;
   }
 
+  /** @pattern Observer | Suscripción | Un observador se registra por tipo de evento, con prioridad y reintentos. */
   subscribe<T extends EventType>(type: T, observer: Observer<T>, options: SubscribeOptions): Subscription {
     const entry: Entry = {
       type, observer, name: options.name,
@@ -62,6 +66,7 @@ export class EventBus {
     return this.entries.filter((e) => e.type === type).length;
   }
 
+  /** @pattern Observer | Notificación a los observadores | Selecciona los observadores del tipo y los ordena por prioridad antes de entregar. */
   publish<T extends EventType>(type: T, payload: EventMap[T]): Promise<DeliveryReport> {
     // Se calcula de forma síncrona (antes de cualquier await) para que `once` no se entregue dos veces.
     const event: DomainEvent<T> = { id: this.newId(), type, occurredAt: this.now(), payload };
@@ -80,6 +85,7 @@ export class EventBus {
     while (this.inFlight.size > 0) await Promise.allSettled([...this.inFlight]);
   }
 
+  /** @pattern Observer | Entrega secuencial | Entrega en orden y guarda el resultado de cada observador en el historial. */
   private async deliver(event: DomainEvent, targets: Entry[]): Promise<DeliveryReport> {
     await this.safeLog(() => this.log?.recordEvent(event));
     const deliveries: DeliveryRecord[] = [];
@@ -91,6 +97,7 @@ export class EventBus {
     return { eventId: event.id, deliveries };
   }
 
+  /** @pattern Observer | Aislamiento y reintento | Si un observador falla se reintenta con backoff y no afecta a los demás. */
   private async invoke(t: Entry, event: DomainEvent): Promise<DeliveryRecord> {
     let attempts = 0;
     for (;;) {

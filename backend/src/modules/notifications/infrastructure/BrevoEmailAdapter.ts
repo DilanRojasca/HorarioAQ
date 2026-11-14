@@ -15,6 +15,8 @@ export interface BrevoOptions {
 /**
  * Envía correo transaccional por la API HTTP de Brevo. Los errores nunca incluyen la clave ni las cabeceras
  * (se redacta de cualquier mensaje devuelto por Brevo). La petición se aborta pasado `timeoutMs`.
+ *
+ * @pattern Adapter | Adaptador de BrevoEmailAdapter | Adapta la API HTTP de Brevo a la interfaz EmailPort que usan los observadores.
  */
 export class BrevoEmailAdapter implements EmailPort {
   private readonly fetchFn: typeof fetch;

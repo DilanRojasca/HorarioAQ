@@ -27,6 +27,8 @@ export interface ObserverDeps {
  * - ScheduleChanged: `audit` (100) → `notifications` (50) → `realtime-schedule` (30).
  * - SyncCompleted: `sync-stats` (40).
  * - NotificationCreated: `realtime-notification` (30) → `email` (10).
+ *
+ * @pattern Observer | Cableado de observadores | Único lugar donde se suscriben todos; añadir uno nuevo es una línea aquí.
  */
 export function registerObservers(bus: EventBus, deps: ObserverDeps): void {
   const { audit, syncRuns, notifications, users, email, hub, sendWindow, now } = deps;
@@ -34,5 +36,5 @@ export function registerObservers(bus: EventBus, deps: ObserverDeps): void {
   registerSyncStatsObserver(bus, syncRuns);
   registerNotificationObserver(bus, notifications);
   registerEmailObserver({ bus, notifications, users, email, window: sendWindow, now });
-  registerRealtimeObserver(bus, hub, { window: sendWindow, now });
+  registerRealtimeObserver(bus, hub, { window: sendWindow, now, users });
 }

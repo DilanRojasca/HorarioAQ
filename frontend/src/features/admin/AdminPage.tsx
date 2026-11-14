@@ -4,6 +4,7 @@ import EventsPanel from './EventsPanel';
 import { formatDateTime, statsDescription, statsLabel, statusBadge, triggerLabel } from './runs';
 import type { Run } from './runs';
 
+interface Student { id: string; name: string; email: string }
 interface SyncResult { runId: string; studentsSynced: number; changesCount: number; failures?: number }
 
 const card = 'rounded-[10px] border border-outline-variant bg-surface-container-lowest shadow-[0_1px_3px_rgba(27,42,51,0.04),0_1px_2px_rgba(27,42,51,0.02)]';
@@ -16,6 +17,12 @@ export default function AdminPage() {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [eventsKey, setEventsKey] = useState(0);
+  const [testKind, setTestKind] = useState('ADDED');
+  const [students, setStudents] = useState<Student[]>([]);
+  const [testUser, setTestUser] = useState('');
+  const [testBusy, setTestBusy] = useState(false);
+  const [testMsg, setTestMsg] = useState('');
+  const [testError, setTestError] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -28,6 +35,11 @@ export default function AdminPage() {
     }
   }, []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    api.get<Student[]>('/admin/students')
+      .then((list) => { setStudents(list); setTestUser((cur) => cur || list[0]?.id || ''); })
+      .catch(() => setStudents([]));
+  }, []);
 
   async function sync() {
     setBusy(true); setResult(null); setError(''); setNotice('');
@@ -40,6 +52,17 @@ export default function AdminPage() {
       if (e instanceof ApiError && e.status === 409) setNotice('Ya hay una sincronización en curso');
       else setError(e instanceof Error ? e.message : 'Error al sincronizar');
     } finally { setBusy(false); }
+  }
+
+  async function sendTest() {
+    setTestBusy(true); setTestMsg(''); setTestError('');
+    try {
+      await api.post('/admin/events/test', { kind: testKind, userId: testUser });
+      setTestMsg(`Evento publicado para ${students.find((s) => s.id === testUser)?.name ?? 'el estudiante'}: revisa los observadores abajo e inicia sesión con esa cuenta para ver la campana y el aviso.`);
+      setEventsKey((k) => k + 1);
+    } catch (e) {
+      setTestError(e instanceof Error ? e.message : 'No se pudo enviar la notificación de prueba');
+    } finally { setTestBusy(false); }
   }
 
   const failures = result?.failures ?? 0;
@@ -117,6 +140,56 @@ export default function AdminPage() {
           <div role="alert" className="flex gap-2.5 rounded-[10px] border border-error/30 bg-error-container/40 p-3 text-error">
             <span className="material-symbols-outlined" aria-hidden="true">error</span>
             <p className="m-0 text-body-md font-medium">{error}</p>
+          </div>
+        )}
+      </section>
+
+      <section className={`${card} space-y-3 p-4`} aria-labelledby="test-title">
+        <h2 id="test-title" className="m-0 text-title-md text-on-surface">Probar notificaciones</h2>
+        <p className="m-0 text-body-md text-on-surface-variant">
+          Publica un cambio de horario ficticio dirigido al estudiante elegido para ver cómo reaccionan los observadores. No modifica ningún horario.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <label className="sr-only" htmlFor="test-user">Estudiante destino</label>
+          <select
+            id="test-user"
+            value={testUser}
+            onChange={(e) => setTestUser(e.target.value)}
+            disabled={testBusy || students.length === 0}
+            className="min-h-[44px] rounded-[10px] border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface sm:w-56"
+          >
+            {students.length === 0 && <option value="">Sin estudiantes</option>}
+            {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <label className="sr-only" htmlFor="test-kind">Tipo de cambio</label>
+          <select
+            id="test-kind"
+            value={testKind}
+            onChange={(e) => setTestKind(e.target.value)}
+            disabled={testBusy}
+            className="min-h-[44px] rounded-[10px] border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface sm:w-56"
+          >
+            <option value="ADDED">Nueva clase</option>
+            <option value="UPDATED">Cambio en una clase</option>
+            <option value="CANCELLED">Clase cancelada</option>
+          </select>
+          <button
+            type="button"
+            onClick={sendTest}
+            disabled={testBusy || !testUser}
+            className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-[10px] bg-primary font-semibold text-on-primary hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">notifications_active</span>
+            {testBusy ? 'Enviando…' : 'Enviar notificación de prueba'}
+          </button>
+        </div>
+        <div role="status" aria-live="polite" className="empty:hidden">
+          {testMsg && <p className="m-0 text-body-md text-on-surface-variant">{testMsg}</p>}
+        </div>
+        {testError && (
+          <div role="alert" className="flex gap-2.5 rounded-[10px] border border-error/30 bg-error-container/40 p-3 text-error">
+            <span className="material-symbols-outlined" aria-hidden="true">error</span>
+            <p className="m-0 text-body-md font-medium">{testError}</p>
           </div>
         )}
       </section>

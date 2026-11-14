@@ -44,6 +44,18 @@ describe('AdminPage', () => {
     expect(await screen.findByText('Panel de eventos 1')).toBeInTheDocument();
   });
 
+  it('el botón de prueba publica el evento con el tipo elegido y refresca el panel', async () => {
+    get.mockImplementation(async (path: string) => (path === '/admin/students' ? [{ id: 's1', name: 'Ana', email: 'a@x.co' }] : runs));
+    post.mockResolvedValue({ eventId: 'e', deliveries: [] });
+    const user = userEvent.setup();
+    render(<AdminPage />);
+    await screen.findByText('Manual');
+    await screen.findByRole('option', { name: 'Ana' });
+    await user.selectOptions(screen.getByLabelText('Tipo de cambio'), 'CANCELLED');
+    await user.click(screen.getByRole('button', { name: 'Enviar notificación de prueba' }));
+    expect(post).toHaveBeenCalledWith('/admin/events/test', { kind: 'CANCELLED', userId: 's1' });
+    expect(await screen.findByText('Panel de eventos 1')).toBeInTheDocument();
+  });
 
   it('muestra un estado de carga sin parpadear "Aún no hay corridas"', async () => {
     let resolve!: (v: unknown) => void;
@@ -77,7 +89,7 @@ describe('AdminPage', () => {
     expect(screen.getByText('5 estudiantes, 2 cambios aplicados')).toBeInTheDocument();
     expect(screen.queryByText(/no se pudieron sincronizar/)).not.toBeInTheDocument();
     expect(post).toHaveBeenCalledWith('/admin/sync');
-    expect(get).toHaveBeenCalledTimes(2);
+    expect(get).toHaveBeenCalledTimes(3);
   });
 
   it('advierte cuando hubo fallos parciales', async () => {

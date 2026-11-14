@@ -7,7 +7,11 @@ import type { RealtimeSource } from './realtime';
 
 const RealtimeCtx = createContext<RealtimeSource | null>(null);
 
-/** Mantiene un único `RealtimeClient` activo mientras haya sesión. `client` permite inyectar un doble en pruebas. */
+/**
+ * Mantiene un único `RealtimeClient` activo mientras haya sesión. `client` permite inyectar un doble en pruebas.
+ *
+ * @pattern Provider | Contexto del flujo en vivo | Una sola conexión SSE compartida por toda la app.
+ */
 export function RealtimeProvider({ children, client }: { children: ReactNode; client?: RealtimeSource }) {
   const { user } = useAuth();
   const active = useMemo<RealtimeSource>(
@@ -23,7 +27,11 @@ export function RealtimeProvider({ children, client }: { children: ReactNode; cl
   return <RealtimeCtx.Provider value={active}>{children}</RealtimeCtx.Provider>;
 }
 
-/** Se suscribe a un tipo de evento mientras el componente está montado; usa siempre la última versión del manejador. */
+/**
+ * Se suscribe a un tipo de evento mientras el componente está montado; usa siempre la última versión del manejador.
+ *
+ * @pattern Observer | Suscripción desde React | Hook que suscribe un manejador a un tipo de evento y lo da de baja al desmontar.
+ */
 export function useRealtime(type: string, handler: (data: unknown) => void): void {
   const source = useContext(RealtimeCtx);
   const latest = useRef(handler);

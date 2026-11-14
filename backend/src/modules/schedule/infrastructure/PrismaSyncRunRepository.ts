@@ -4,8 +4,13 @@ import { SyncRunRepository, SyncRunRecord, SyncStats } from '../application/port
 const LOCK_KEY = 727_368_001; // clave arbitraria del advisory lock de sincronización
 const STALE_MS = 3_600_000; // una corrida RUNNING de más de 1 h se considera obsoleta
 
+/** @pattern Repository | Implementación con Prisma/PostgreSQL | Adaptador de salida del puerto; en las pruebas lo reemplaza una versión InMemory. */
 export class PrismaSyncRunRepository implements SyncRunRepository {
-  /** Comprobación + inserción bajo un advisory lock transaccional: seguro entre réplicas. */
+  /**
+   * Comprobación + inserción bajo un advisory lock transaccional: seguro entre réplicas.
+   *
+   * @pattern Consumidor idempotente | Una sola sincronización a la vez | Devuelve null si ya hay otra corrida activa.
+   */
   async tryStart(trigger: string, actorId?: string) {
     return prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${LOCK_KEY})`;

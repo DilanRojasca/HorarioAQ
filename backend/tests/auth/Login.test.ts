@@ -12,13 +12,16 @@ describe('LoginUseCase', () => {
   it('devuelve token y usuario sin passwordHash', async () => {
     const r = await uc.execute({ email: 'ANA@x.co', password: 'Secreta123!' });
     expect(r.token).toMatch(/^tok:u1:STUDENT:/);
-    expect(r.user).toEqual({ id: 'u1', name: 'Ana', email: 'ana@x.co', role: 'STUDENT' });
+    expect(r.user).toEqual({ id: 'u1', name: 'Ana', email: 'ana@x.co', role: 'STUDENT', avatarUrl: null });
   });
   it('401 con contraseña incorrecta', async () => {
     await expect(uc.execute({ email: 'ana@x.co', password: 'mala' })).rejects.toMatchObject({ status: 401 });
   });
-  it('401 con usuario inexistente o inactivo', async () => {
+  it('401 con usuario inexistente', async () => {
     await expect(uc.execute({ email: 'no@x.co', password: 'x' })).rejects.toMatchObject({ status: 401 });
-    await expect(uc.execute({ email: 'off@x.co', password: 'Secreta123!' })).rejects.toMatchObject({ status: 401 });
+  });
+  it('cuenta inactiva: 401 si la contraseña es mala; 403 con mensaje claro si es correcta (sin verificar)', async () => {
+    await expect(uc.execute({ email: 'off@x.co', password: 'mala' })).rejects.toMatchObject({ status: 401 });
+    await expect(uc.execute({ email: 'off@x.co', password: 'Secreta123!' })).rejects.toMatchObject({ status: 403, message: /verificar tu cuenta/ });
   });
 });

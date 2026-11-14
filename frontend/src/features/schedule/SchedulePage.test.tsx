@@ -100,34 +100,63 @@ describe('SchedulePage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Falla de red');
   });
 
+  /** Responde por ruta: /schedule/me va en cola (una respuesta por llamada) y /gaps siempre devuelve `gaps`. */
+  const route = (scheduleReplies: Array<unknown | Error>, gaps: unknown[] = []) => {
+    const queue = [...scheduleReplies];
+    get.mockImplementation(async (path: string) => {
+      if (path === '/gaps') return gaps;
+      const next = queue.length > 1 ? queue.shift() : queue[0];
+      if (next instanceof Error) throw next;
+      return next;
+    });
+  };
+  const schedule = (list = sessions) => ({ userId: 'u', semester: '2026-2', enrolled: true, sessions: list });
+  const scheduleCalls = () => get.mock.calls.filter(([p]) => p === '/schedule/me').length;
+
   it('al llegar schedule-changed recarga el horario sin parpadeo y avisa con un toast', async () => {
-    get.mockResolvedValueOnce({ userId: 'u', semester: '2026-2', enrolled: true, sessions });
+    route([schedule(), schedule([...sessions, mk({ externalId: 'e', courseName: 'Ética', startTime: '16:00', endTime: '18:00' })])]);
     const fake = new FakeRealtime();
     render(<ToastProvider><RealtimeProvider client={fake}><SchedulePage /></RealtimeProvider></ToastProvider>);
     await screen.findByRole('heading', { level: 1, name: /Mi horario/ });
-    expect(get).toHaveBeenCalledTimes(1);
+    expect(scheduleCalls()).toBe(1);
 
-    get.mockResolvedValueOnce({
-      userId: 'u', semester: '2026-2', enrolled: true,
-      sessions: [...sessions, mk({ externalId: 'e', courseName: 'Ética', startTime: '16:00', endTime: '18:00' })],
-    });
     act(() => fake.emit('schedule-changed', { semester: '2026-2', count: 1 }));
     expect(screen.queryByText('Cargando horario…')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: /Mi horario/ })).toBeInTheDocument();
-    await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(scheduleCalls()).toBe(2));
     expect((await screen.findAllByText('Ética')).length).toBeGreaterThan(0);
     expect(screen.getByText('Tu horario cambió')).toBeInTheDocument();
   });
 
   it('si la recarga falla conserva el horario que ya se mostraba', async () => {
-    get.mockResolvedValueOnce({ userId: 'u', semester: '2026-2', enrolled: true, sessions });
+    route([schedule(), new Error('Falla de red')]);
     const fake = new FakeRealtime();
     render(<ToastProvider><RealtimeProvider client={fake}><SchedulePage /></RealtimeProvider></ToastProvider>);
     await screen.findByRole('heading', { level: 1, name: /Mi horario/ });
-    get.mockRejectedValueOnce(new Error('Falla de red'));
     act(() => fake.emit('schedule-changed', {}));
-    await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(scheduleCalls()).toBe(2));
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: /Mi horario/ })).toBeInTheDocument();
+  });
+
+  it('las actividades y huecos ocupados de «Tiempos libres» se reflejan en el calendario', async () => {
+    // miércoles 7 oct 2026 (hoy en la prueba): hueco entre 09:00 y 10:00
+    route([schedule()], [
+      { weekday: 3, startTime: '09:00', endTime: '10:00', minutes: 60, status: 'AVAILABLE', activity: { id: '1', title: 'Biblioteca' }, suggestion: null },
+      { weekday: 3, startTime: '12:00', endTime: '14:00', minutes: 120, status: 'OCCUPIED', activity: null, suggestion: null },
+      { weekday: 3, startTime: '16:00', endTime: '17:00', minutes: 60, status: 'AVAILABLE', activity: null, suggestion: { kind: 'MEAL', title: 'Alimentación', detail: 'x' } },
+    ]);
+    render(<ToastProvider><RealtimeProvider client={new FakeRealtime()}><SchedulePage /></RealtimeProvider></ToastProvider>);
+    expect((await screen.findAllByText('Biblioteca')).length).toBeGreaterThan(0);          // actividad propia
+    expect(screen.getAllByText('Ocupado').length).toBeGreaterThan(0);                       // hueco ocupado
+    expect(screen.queryByText('Alimentación')).not.toBeInTheDocument();                     // hueco libre sin tocar: no se pinta
+    expect(screen.getAllByRole('link', { name: /Tu actividad: Biblioteca/ })[0]).toHaveAttribute('href', '/gaps');
+  });
+
+  it('si no se pueden cargar los huecos el calendario sigue mostrando las clases', async () => {
+    get.mockImplementation(async (path: string) => { if (path === '/gaps') throw new Error('x'); return schedule(); });
+    render(<SchedulePage />);
+    expect(await screen.findByRole('heading', { level: 1, name: /Mi horario/ })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

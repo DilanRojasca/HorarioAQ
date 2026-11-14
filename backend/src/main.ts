@@ -7,15 +7,25 @@ import { PrismaEventLog } from './shared/events/PrismaEventLog';
 import { registerObservers } from './shared/registerObservers';
 import { createApp } from './shared/http/app';
 import { startSyncJob } from './jobs/syncJob';
+import { startReminderJob } from './jobs/reminderJob';
 import { startNotificationFlushJob } from './jobs/notificationFlushJob';
 import { Argon2Hasher } from './modules/auth/infrastructure/Argon2Hasher';
 import { JwtTokenService } from './modules/auth/infrastructure/JwtTokenService';
 import { PrismaRevokedTokenRepository } from './modules/auth/infrastructure/PrismaRevokedTokenRepository';
 import { PrismaUserRepository } from './modules/auth/infrastructure/PrismaUserRepository';
+import { PrismaOtpRepository } from './modules/auth/infrastructure/PrismaOtpRepository';
+import { PrismaRefreshTokenRepository } from './modules/auth/infrastructure/PrismaRefreshTokenRepository';
+import { CryptoOtpCodec } from './modules/auth/infrastructure/CryptoOtpCodec';
+import { DevLoggingOtpMailer } from './modules/auth/infrastructure/DevLoggingOtpMailer';
+import { EmailOtpMailer } from './modules/auth/infrastructure/EmailOtpMailer';
+import { PrismaCatalogRepository } from './modules/catalog/infrastructure/PrismaCatalogRepository';
+import { PrismaGapRepository } from './modules/gaps/infrastructure/PrismaGapRepository';
+import { PrismaScheduledNotificationRepository } from './modules/notifications/infrastructure/PrismaScheduledNotificationRepository';
 import { PrismaAuditLog } from './modules/audit/PrismaAuditLog';
 import { buildEmailAdapter } from './modules/notifications/infrastructure/buildEmailAdapter';
 import { PrismaNotificationRepository } from './modules/notifications/infrastructure/PrismaNotificationRepository';
 import { SseHub } from './modules/realtime/SseHub';
+import { DEMO_PLAN_BY_EMAIL } from './modules/schedule/infrastructure/demoPlans';
 import { MockInstitutionalAdapter } from './modules/schedule/infrastructure/MockInstitutionalAdapter';
 import { PrismaEnrollmentRepository } from './modules/schedule/infrastructure/PrismaEnrollmentRepository';
 import { PrismaScheduleRepository } from './modules/schedule/infrastructure/PrismaScheduleRepository';
@@ -23,6 +33,7 @@ import { PrismaSyncRunRepository } from './modules/schedule/infrastructure/Prism
 import { IcsExporter } from './modules/schedule/infrastructure/exporters/IcsExporter';
 import { PdfExporter } from './modules/schedule/infrastructure/exporters/PdfExporter';
 
+/** @pattern Dependency Injection | Ensamblaje con adaptadores reales | Crea Prisma, correo y mock institucional y los inyecta en buildContainer. */
 export function wire() {
   const eventLog = new PrismaEventLog();
   const bus = new EventBus({ log: eventLog });
@@ -38,7 +49,7 @@ export function wire() {
   const container = buildContainer({
     schedules: new PrismaScheduleRepository(),
     enrollments: new PrismaEnrollmentRepository(),
-    institutional: new MockInstitutionalAdapter(syncRuns),
+    institutional: new MockInstitutionalAdapter(syncRuns, { planOf: async (id) => DEMO_PLAN_BY_EMAIL[(await users.findById(id))?.email ?? ''] }),
     syncRuns,
     users,
     revoked: new PrismaRevokedTokenRepository(),
@@ -49,12 +60,20 @@ export function wire() {
     eventLog,
     notifications,
     hub,
+    otps: new PrismaOtpRepository(),
+    refreshTokens: new PrismaRefreshTokenRepository(),
+    otpCodec: new CryptoOtpCodec(config.jwtSecret),
+    otpMailer: config.emailMode === 'console' && process.env.NODE_ENV !== 'production' ? new DevLoggingOtpMailer(new EmailOtpMailer(email)) : new EmailOtpMailer(email),
+    gaps: new PrismaGapRepository(),
+    catalog: new PrismaCatalogRepository(),
+    scheduled: new PrismaScheduledNotificationRepository(),
+    auditReader: audit,
     exporters: {
       ics: new IcsExporter({ semesterStart: config.semesterStart, weeks: config.semesterWeeks }),
       pdf: new PdfExporter({ semester: config.semester }),
     },
   }, config);
-  return { ...container, bus, sendWindow };
+  return { ...container, bus, sendWindow, scheduled: new PrismaScheduledNotificationRepository(), notifications, schedules: new PrismaScheduleRepository(), enrollments: new PrismaEnrollmentRepository() };
 }
 
 if (require.main === module) {
@@ -66,6 +85,10 @@ if (require.main === module) {
     { notifications: container.notifications, bus: container.bus, window: container.sendWindow },
     config.notifyFlushCron,
   );
+  const reminderJob = startReminderJob({
+    scheduled: container.scheduled, schedules: container.schedules, enrollments: container.enrollments, users: container.users,
+    semester: config.semester, timeZone: config.notifyTimezone, notifications: container.notifications, bus: container.bus,
+  });
   const server = app.listen(config.port, () => console.log(`API en http://localhost:${config.port}/api`));
   // Cierre ordenado: detiene los cron, espera a los observadores en vuelo y termina los streams SSE.
   let shuttingDown = false;
@@ -76,6 +99,7 @@ if (require.main === module) {
       setTimeout(() => process.exit(1), 10_000).unref(); // salida forzada si algo no termina
       syncJob.stop();
       flushJob.stop();
+      reminderJob.stop();
       void container.bus.idle().finally(() => {
         container.hub.closeAll();
         server.close(() => process.exit(0));

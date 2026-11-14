@@ -1,10 +1,19 @@
+import { GapCard } from './GapBlockView';
+import { gapKey } from './gapBlocks';
+import type { GapBlock } from './gapBlocks';
 import { classStatus, dayLabel, shortDate } from './time';
 import { todaySessions } from './grid';
 import type { Session } from './types';
 import { card } from '../../shared/ui';
 
-export default function TodayCard({ sessions, now, onSelect }: { sessions: Session[]; now: Date; onSelect(s: Session): void }) {
+export default function TodayCard({ sessions, now, onSelect, gaps = [] }: { sessions: Session[]; now: Date; onSelect(s: Session): void; gaps?: GapBlock[] }) {
   const today = todaySessions(sessions, now);
+  const todayGaps = gaps.filter((b) => b.weekday === (now.getDay() || 7));
+  // Clases y actividades de huecos de hoy, en orden cronológico
+  const items = [
+    ...today.map((s) => ({ at: s.startTime, s, b: null as GapBlock | null })),
+    ...todayGaps.map((b) => ({ at: b.startTime, s: null as Session | null, b })),
+  ].sort((a, b) => a.at.localeCompare(b.at));
   const status = classStatus(today, now);
   return (
     <section className={`${card} overflow-hidden`} aria-labelledby="today-title">
@@ -16,7 +25,7 @@ export default function TodayCard({ sessions, now, onSelect }: { sessions: Sessi
         <span className="shrink-0 rounded-full bg-surface-container-highest px-2.5 py-0.5 text-label-md font-semibold text-primary">{shortDate(now)}</span>
       </div>
       <div className="space-y-3 p-3.5">
-        {today.length === 0 ? (
+        {items.length === 0 ? (
           <div className="flex flex-col items-center px-2 py-4 text-center">
             <span className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-full bg-surface-container text-primary-container">
               <span className="material-symbols-outlined" aria-hidden="true">free_cancellation</span>
@@ -25,7 +34,7 @@ export default function TodayCard({ sessions, now, onSelect }: { sessions: Sessi
             <p className="mb-0 mt-1 text-body-md text-on-surface-variant">Aprovecha el día; tu horario de la semana está más abajo.</p>
           </div>
         ) : (
-          today.map((s) => (
+          items.map(({ s, b }) => (b ? <GapCard key={gapKey(b)} block={b} /> : s && (
             <article key={s.externalId} className="rounded-[10px] border border-l-4 border-outline-variant border-l-secondary-container bg-surface-container-low p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="rounded border border-outline-variant/40 bg-surface px-2 py-0.5 text-body-md font-bold text-on-surface">
@@ -56,7 +65,7 @@ export default function TodayCard({ sessions, now, onSelect }: { sessions: Sessi
                 </p>
               </div>
             </article>
-          ))
+          )))
         )}
       </div>
     </section>

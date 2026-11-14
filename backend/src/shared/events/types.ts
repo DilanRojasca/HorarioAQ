@@ -1,8 +1,17 @@
 import type { ScheduleChange } from '../../modules/schedule/domain/types';
 
-export type NotificationKind = 'SCHEDULE_ADDED' | 'SCHEDULE_UPDATED' | 'SCHEDULE_CANCELLED';
+export type NotificationKind =
+  | 'SCHEDULE_ADDED' | 'SCHEDULE_UPDATED' | 'SCHEDULE_CANCELLED'
+  /** RF-NOT-01: notificación propia programada por el estudiante. */
+  | 'CUSTOM'
+  /** RF-NOT-02: recordatorio automático antes de una clase. */
+  | 'CLASS_REMINDER';
 
-/** Catálogo de eventos del dominio: tipo → forma del payload. */
+/**
+ * Catálogo de eventos del dominio: tipo → forma del payload.
+ *
+ * @pattern Observer | Catálogo tipado de eventos | Tipo de evento → payload; el compilador valida productor y observador.
+ */
 export interface EventMap {
   ScheduleChanged: {
     userId: string; semester: string; changes: ScheduleChange[];
@@ -29,6 +38,7 @@ export interface DomainEvent<T extends EventType = EventType> {
   payload: EventMap[T];
 }
 
+/** @pattern Observer | Contrato del observador | Firma que debe cumplir cualquier observador. */
 export type Observer<T extends EventType> = (event: DomainEvent<T>) => void | Promise<void>;
 
 export interface SubscribeOptions {

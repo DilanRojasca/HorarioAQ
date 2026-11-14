@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>$title$</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const cover = document.querySelector('.cover'), toc = document.getElementById('TOC');
+  if (cover && toc) cover.after(toc);
+  document.querySelectorAll('pre.mermaid').forEach((p) => { const d = document.createElement('div'); d.className = 'mermaid'; d.textContent = p.textContent; p.replaceWith(d); });
+  mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+  await mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+</head><body>
+$if(toc)$<nav id="TOC"><h2>Índice</h2>$table-of-contents$</nav>$endif$
+$body$
+</body></html>

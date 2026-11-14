@@ -56,7 +56,11 @@ function Toast({ item, onClose }: { item: ToastItem; onClose(id: number): void }
   );
 }
 
-/** Avisos efímeros. La región `role="status"` está siempre montada para que los lectores de pantalla anuncien los nuevos. */
+/**
+ * Avisos efímeros. La región `role="status"` está siempre montada para que los lectores de pantalla anuncien los nuevos.
+ *
+ * @pattern Provider | Contexto de avisos | Cualquier pantalla puede mostrar un aviso emergente accesible.
+ */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
   const nextId = useRef(1);

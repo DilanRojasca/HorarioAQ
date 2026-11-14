@@ -20,7 +20,11 @@ const chunk = <T>(arr: T[], size: number): T[][] => {
   return out;
 };
 
-/** Facade: orquesta adaptador institucional → diff → persistencia → eventos. Único escritor del horario. */
+/**
+ * Facade: orquesta adaptador institucional → diff → persistencia → eventos. Único escritor del horario.
+ *
+ * @pattern Facade | Fachada de la sincronización | Una sola llamada oculta adaptador, diff, persistencia, lotes y eventos.
+ */
 export class SyncScheduleUseCase implements UseCase<SyncInput, SyncResult> {
   constructor(private d: Deps, private opts: { semester: string; concurrency: number }) {}
 

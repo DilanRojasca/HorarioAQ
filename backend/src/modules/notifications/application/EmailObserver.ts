@@ -2,6 +2,7 @@ import { EventBus } from '../../../shared/events/EventBus';
 import { Subscription } from '../../../shared/events/types';
 import { isWithinSendWindow, SendWindowOptions } from '../../../shared/window';
 import { UserRepository } from '../../auth/application/ports';
+import { channelPolicy } from '../domain/channelPolicy';
 import { EMAIL_OBSERVER_RETRIES, EmailPort, NotificationRepository } from './ports';
 
 export interface EmailObserverDeps {
@@ -21,6 +22,8 @@ export interface EmailObserverDeps {
  * envía quien gana el reclamo, así que entregas concurrentes o re-publicaciones no repiten el correo.
  * Si el envío falla libera el reclamo, suma un intento fallido y propaga el error para que el bus
  * reintente (3 reintentos). Usuario inexistente o inactivo: se marca omitida (terminal).
+ *
+ * @pattern Observer | Observador concreto: email | Envía el correo de NotificationCreated respetando ventana horaria y canal.
  */
 export function registerEmailObserver(deps: EmailObserverDeps): Subscription[] {
   const { bus, notifications, users, email, now = () => new Date(), window } = deps;
@@ -33,6 +36,10 @@ export function registerEmailObserver(deps: EmailObserverDeps): Subscription[] {
       if (!n || n.emailedAt || n.emailSkippedAt) return;
       const user = await users.findById(n.userId);
       if (!user || !user.active) {
+        await notifications.markEmailSkipped(n.id, at);
+        return;
+      }
+      if (!channelPolicy(user.notifyChannel).email) { // RF-NOT-04: el usuario eligió solo notificaciones en la app
         await notifications.markEmailSkipped(n.id, at);
         return;
       }

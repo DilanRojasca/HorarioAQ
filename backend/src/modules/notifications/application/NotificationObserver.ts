@@ -10,6 +10,8 @@ import { NotificationRepository } from './ports';
  * la entrega en vuelo de forma síncrona, así que `bus.idle()` la cubre igualmente, y un correo lento
  * o fallido nunca retrasa a los demás observadores ni la sincronización. Si un cambio falla se siguen procesando los demás y al final se lanza el primer
  * error, de modo que el bus reintente; las notificaciones ya creadas no se duplican.
+ *
+ * @pattern Observer | Observador concreto: notifications | Convierte ScheduleChanged en notificaciones y publica NotificationCreated.
  */
 export function registerNotificationObserver(bus: EventBus, repo: NotificationRepository): Subscription[] {
   const done = new Map<string, Set<number>>(); // eventId -> índices de cambios ya notificados

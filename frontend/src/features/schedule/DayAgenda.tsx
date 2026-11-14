@@ -1,19 +1,28 @@
 import { useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
+import { GapCard } from './GapBlockView';
+import { gapBlocksByDay, gapKey } from './gapBlocks';
+import type { GapBlock } from './gapBlocks';
 import { sessionsByDay } from './grid';
 import { durationLabel, weekDays } from './time';
 import type { Session } from './types';
 import { card } from '../../shared/ui';
 
-interface Props { sessions: Session[]; now: Date; onSelect(s: Session): void }
+interface Props { sessions: Session[]; now: Date; onSelect(s: Session): void; gaps?: GapBlock[] }
 
 /** Vista móvil de la semana: pestañas LUN–SÁB y las clases del día elegido. */
-export default function DayAgenda({ sessions, now, onSelect }: Props) {
+export default function DayAgenda({ sessions, now, onSelect, gaps = [] }: Props) {
   const days = weekDays(now);
   const todayIso = now.getDay() || 7;
   const [selected, setSelected] = useState<number>(todayIso > 6 ? 1 : todayIso);
   const tabRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const list = sessionsByDay(sessions)[selected] ?? [];
+  const gapList = gapBlocksByDay(gaps)[selected] ?? [];
+  // Clases y actividades de huecos juntas, en orden cronológico
+  const items = [
+    ...list.map((s) => ({ at: s.startTime, node: 'session' as const, s })),
+    ...gapList.map((b) => ({ at: b.startTime, node: 'gap' as const, b })),
+  ].sort((a, b) => a.at.localeCompare(b.at));
 
   function move(to: number) {
     setSelected(to);
@@ -56,30 +65,30 @@ export default function DayAgenda({ sessions, now, onSelect }: Props) {
       </div>
 
       <div id="daypanel" role="tabpanel" aria-labelledby={`daytab-${selected}`} className="space-y-3">
-        {list.length === 0 ? (
+        {items.length === 0 ? (
           <p className={`${card} m-0 p-4 text-center text-body-md text-on-surface-variant`}>No hay clases este día.</p>
         ) : (
-          list.map((s) => (
-            <article key={s.externalId} className={`${card} border-l-4 border-l-secondary-container p-3.5`}>
+          items.map((it) => it.node === 'gap' ? <GapCard key={gapKey(it.b)} block={it.b} /> : (
+            <article key={it.s.externalId} className={`${card} border-l-4 border-l-secondary-container p-3.5`}>
               <div className="flex items-center justify-between gap-2">
                 <p className="m-0 flex items-center gap-1.5 text-body-md font-bold text-on-surface">
                   <span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">schedule</span>
-                  {s.startTime} – {s.endTime}
+                  {it.s.startTime} – {it.s.endTime}
                 </p>
                 <span className="rounded-full border border-outline-variant/60 bg-surface-container-high px-2 py-0.5 text-label-sm text-primary">
-                  {durationLabel(s.startTime, s.endTime)}
+                  {durationLabel(it.s.startTime, it.s.endTime)}
                 </span>
               </div>
               <button
                 type="button"
-                onClick={() => onSelect(s)}
+                onClick={() => onSelect(it.s)}
                 className="mt-1 min-h-[44px] w-full text-left text-title-md font-bold text-primary hover:underline"
               >
-                {s.courseName}
+                {it.s.courseName}
               </button>
               <p className="m-0 flex items-center gap-1.5 text-body-md font-medium text-on-surface">
                 <span className="material-symbols-outlined text-[18px] text-on-surface-variant" aria-hidden="true">apartment</span>
-                Bloque {s.block} · Aula {s.room}
+                Bloque {it.s.block} · Aula {it.s.room}
               </p>
             </article>
           ))

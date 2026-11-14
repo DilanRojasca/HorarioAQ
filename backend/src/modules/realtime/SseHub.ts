@@ -13,6 +13,8 @@ export interface SseWritable {
  * por usuario y les empuja eventos. Los observadores del bus (ver RealtimeObserver) lo usan para
  * notificar solo al dueño del evento (RRF-04). Envía un latido periódico para mantener viva la
  * conexión; el temporizador no retiene el proceso y se detiene cuando no quedan conexiones.
+ *
+ * @pattern Observer | Canal hacia el navegador | Mantiene las conexiones SSE por usuario; es por donde los observadores realtime emiten.
  */
 export class SseHub {
   private readonly conns = new Map<string, Set<SseWritable>>();

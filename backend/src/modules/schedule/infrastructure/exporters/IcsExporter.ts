@@ -6,6 +6,7 @@ interface Opts { semesterStart: string; weeks: number; now?: () => Date }
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 const pad = (n: number) => String(n).padStart(2, '0');
 
+/** @pattern Template Method | Subclase: .ics | Solo implementa el paso render(); el resto del algoritmo lo hereda de BaseExporter. */
 export class IcsExporter extends BaseExporter {
   protected readonly contentType = 'text/calendar; charset=utf-8';
   protected readonly extension = 'ics';
